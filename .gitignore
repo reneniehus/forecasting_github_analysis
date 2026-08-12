@@ -1,0 +1,26 @@
+# ---- R session / IDE ----
+.Rproj.user/
+.Rhistory
+.RData
+.RDataTmp
+.Ruserdata
+
+# ---- large external inputs: the two hub clones live OUTSIDE the repo ----
+# (clone them next to this repo -- see README "Getting the hub data"); never vendored here.
+hubs/
+RespiCast-Covid19/
+RespiCast-SyndromicIndicators/
+
+# NOTE: output/ IS committed on purpose -- the derived tables (output/*.csv), the
+# artefact data (output/artefact_data.json), the theme/audit synthesis and the PNG
+# figures are all small and let the dashboard + docs reproduce WITHOUT re-cloning the
+# 1.7 GB of hub submissions. They regenerate from source via code/00_main.R.
+
+# ---- private survey microdata: NEVER commit to the public repo ----
+# The full export contains open-text answers in which four respondents name their own
+# country or institute. Only data/survey_public_notext.xlsx (free text blanked) is published.
+data/survey_deidentified.xlsx
+
+# The redaction script necessarily contains the list of names it removes, i.e. a
+# codebook for reversing the redaction. It is kept private, alongside the full export.
+code/02_survey/redact_public_outputs.R
