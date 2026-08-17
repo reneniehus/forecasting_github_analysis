@@ -123,3 +123,26 @@ every round; others arrive mid-season, appear for a single winter, or rotate in 
 teams (e.g. epiforecasts, fjordhest) bridge the EU-COVID-hub → RespiCast handover; most belong to one
 era. The **ensemble** is published in ~98% of active rounds — but its strength is only ever the number
 of models behind it that week.
+
+## RespiCast breadth — the summary statement and its numbers
+
+> Since November 2023, RespiCast has published weekly multi-model ensemble forecasts for three
+> indicators — ILI and ARI incidence and COVID-19 hospital admissions — drawing on **48 distinct
+> models** submitted by independent teams and reaching **33 EU/EEA countries** in total (per
+> indicator: 17–33 models, 15–31 countries). Through the winter season every indicator is supported
+> by a median of **9–15 contributing models** per round, with **at least five models in ≥90% of
+> winter weeks**, and an ensemble published in **96–99%** of rounds.
+
+Supporting figure: `output/figures/respicast_participation.png`
+(`code/05_figures/fig_respicast_participation.R`).
+
+| Indicator | Distinct models | Countries | Winter median models/week | Winter weeks ≥5 models | Rounds with ensemble |
+|---|---:|---:|---:|---:|---:|
+| ILI incidence | 33 | 31 | 15 | 97% | 96% |
+| ARI incidence | 27 | 25 | 9 | 97% | 98% |
+| COVID-19 hospitalisations | 17 | 15 | 9 | 90% | 99% |
+| **any (union)** | **48** | **33** | — | — | — |
+
+Scope: "RespiCast" here spans 2023-11-15 → 2026-07-15 and covers the two current hubs plus the
+2023/24 flu and ARI hubs (already publishing under `respicast-hubEnsemble`). It excludes the
+predecessor EU COVID-19 Forecast Hub, a separate earlier programme. Winter = October–March.
