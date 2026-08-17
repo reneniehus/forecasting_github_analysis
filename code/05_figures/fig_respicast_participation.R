@@ -11,9 +11,11 @@
 # ARI moves to bluish-green; the hues are now ~120 deg apart and stay distinct under
 # deuteranopia and protanopia.
 #
-# RespiCast here = every hub EXCEPT the predecessor EU COVID-19 Forecast Hub. The
-# 2023/24 flu and ARI hubs are included because they already published under the
-# respicast-hubEnsemble name; the EU COVID-19 hub is a separate, earlier programme.
+# Scope: ALL European hubs that carried these indicators, so COVID-19 hospitalisations
+# shows its full record. It began in the European COVID-19 Forecast Hub
+# (covid19-forecast-hub-europe_archive, from Jul 2021) and moved into RespiCast-Covid19
+# in Oct 2024; ILI/ARI began in the 2023/24 flu and ARI hubs and moved into
+# RespiCast-SyndromicIndicators at the same reorganisation, marked by the dashed line.
 #
 # Run:  Rscript code/05_figures/fig_respicast_participation.R
 
@@ -37,13 +39,15 @@ theme_sci <- function(base = 10.5) {
           plot.title         = element_text(face = "plain", colour = INK, size = base + 0.5),
           plot.tag           = element_text(face = "bold", colour = INK, size = base + 1),
           plot.tag.position  = c(0, 1),
-          plot.margin        = margin(4, 10, 4, 6))
+          plot.margin        = margin(4, 52, 4, 6))
 }
 
 # ---- |-data: RespiCast era only ----
 w <- read_csv(file.path(params$output_dir, "hub_coverage_weekly.csv"), show_col_types = FALSE) %>%
-  filter(!grepl("covid_archive", hub)) %>%
+  filter(indicator %in% IND) %>%
   mutate(week = as.Date(week), indicator = factor(indicator, levels = IND))
+
+HANDOVER <- as.Date("2024-10-21")   # both hub families reorganised into the current repos
 
 XLIM <- c(min(w$week), max(w$week))
 
@@ -64,29 +68,35 @@ grid <- expand_grid(indicator = factor(IND, levels = IND),
   mutate(ens_countries = ifelse(!is.na(has_ensemble) & has_ensemble, ensemble_locations, NA_real_))
 
 # one x scale object, reused verbatim by both panels so they align exactly
-x_scale <- scale_x_date(date_breaks = "6 months", date_labels = "%b %Y",
+x_scale <- scale_x_date(date_breaks = "1 year", date_labels = "%Y",
                         limits = XLIM, expand = expansion(mult = c(0.02, 0.02)))
 winter <- geom_rect(data = bands, inherit.aes = FALSE,
                     aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf),
                     fill = BAND, alpha = 0.9)
+handover <- geom_vline(xintercept = HANDOVER, linetype = "solid",
+                       linewidth = 0.4, colour = "#9a9992")
 
 # ---- |-(A) contributing models per week ----
 pA <- ggplot(grid, aes(week, n_models, colour = indicator)) +
   winter +
+  handover +
   geom_hline(yintercept = 5, linetype = "22", linewidth = 0.4, colour = MUTED) +
-  annotate("text", x = as.Date("2024-06-25"), y = 6.0, label = "5 models", hjust = 0,
-           size = 2.8, colour = MUTED) +
+  annotate("text", x = XLIM[2], y = 5, label = " 5 models", hjust = 0, vjust = -0.4,
+           size = 2.7, colour = MUTED) +
+  annotate("text", x = HANDOVER, y = 20.4, label = "hubs reorganised, Oct 2024 ",
+           hjust = 1, size = 2.7, colour = "#8a8982") +
   geom_line(linewidth = 0.55, na.rm = TRUE) +
   scale_colour_manual(values = COL, drop = FALSE) +
   x_scale +
   scale_y_continuous(breaks = seq(0, 20, 5), limits = c(0, 21), expand = c(0, 0)) +
   labs(tag = "A", title = "Contributing models per weekly round", x = NULL, y = "models") +
-  theme_sci() +
+  theme_sci() + coord_cartesian(clip = "off") +
   theme(axis.text.x = element_blank())     # x labels live on panel B only
 
 # ---- |-(B) countries covered by the published ensemble ----
 pB <- ggplot(grid, aes(week, ens_countries, colour = indicator)) +
   winter +
+  handover +
   geom_line(linewidth = 0.55, na.rm = TRUE) +
   scale_colour_manual(values = COL, drop = FALSE) +
   x_scale +

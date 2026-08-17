@@ -160,6 +160,23 @@ two ways (recomputed from raw submissions, and from the pipeline's `ensemble_loc
 Including the predecessor EU COVID-19 hub changes COVID-19 hospitalisations to 7 models / 11
 countries over 215 ensemble weeks; ILI and ARI are unaffected.
 
+### COVID-19 hospitalisations: the full record, across both hubs
+
+The indicator did not begin with RespiCast. It ran in the **European COVID-19 Forecast Hub**
+(`covid19-forecast-hub-europe_archive`) from **2021-07-26**, and moved into `RespiCast-Covid19` at the
+October-2024 reorganisation. Counting only the RespiCast era understates its history by three years.
+
+| Era (hub) | Weeks | Ensemble weeks | Median models | Median countries | Distinct models | Countries ever |
+|---|---:|---:|---:|---:|---:|---:|
+| European COVID-19 Forecast Hub, 2021-07 → 2024-10 | 167 | 128 | 4 | 13 | 20 | 32 |
+| RespiCast-Covid19, 2024-10 → 2026-06 | 88 | 87 | 8.5 | 10 | 17 | 15 |
+| **combined** | **255** | **215** | 7 | 11 | **36** | **32** |
+
+Two opposing trends meet at the handover: RespiCast roughly **doubled the models** per round (4 → 8.5)
+but the ensemble's **country coverage is lower** (13 → 10). The predecessor's coverage had, however,
+already collapsed before the handover — from 17–20 countries in early 2023 to **1–2 countries**
+through 2024 — so RespiCast rebuilt geographic reach from a very low base rather than reducing it.
+
 Scope: "RespiCast" here spans 2023-11-15 → 2026-07-15 and covers the two current hubs plus the
 2023/24 flu and ARI hubs (already publishing under `respicast-hubEnsemble`). It excludes the
 predecessor EU COVID-19 Forecast Hub, a separate earlier programme. Winter = October–March.
