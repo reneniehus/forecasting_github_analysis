@@ -143,6 +143,23 @@ Supporting figure: `output/figures/respicast_participation.png`
 | COVID-19 hospitalisations | 17 | 15 | 9 | 90% | 99% |
 | **any (union)** | **48** | **33** | — | — | — |
 
+
+### Weeks in which an ensemble was published (RespiCast era)
+
+Medians over the weeks an ensemble actually appeared — the figures to quote for a *typical* week,
+as distinct from the cumulative reach above.
+
+| Indicator | Ensemble weeks | Median models (IQR) | Median countries (IQR) |
+|---|---:|---:|---:|
+| ILI incidence | 109 | 13 (10–16) | 25 (22–27) |
+| ARI incidence | 109 | 8 (5–9) | 17 (16–20) |
+| COVID-19 hospitalisations | 87 | 9 (7–9) | 10 (9–11) |
+
+"Countries" = locations in the published ensemble itself, i.e. what a site user would see. Verified
+two ways (recomputed from raw submissions, and from the pipeline's `ensemble_locations`) — identical.
+Including the predecessor EU COVID-19 hub changes COVID-19 hospitalisations to 7 models / 11
+countries over 215 ensemble weeks; ILI and ARI are unaffected.
+
 Scope: "RespiCast" here spans 2023-11-15 → 2026-07-15 and covers the two current hubs plus the
 2023/24 flu and ARI hubs (already publishing under `respicast-hubEnsemble`). It excludes the
 predecessor EU COVID-19 Forecast Hub, a separate earlier programme. Winter = October–March.
