@@ -11,11 +11,11 @@
 # ARI moves to bluish-green; the hues are now ~120 deg apart and stay distinct under
 # deuteranopia and protanopia.
 #
-# Scope: ALL European hubs that carried these indicators, so COVID-19 hospitalisations
-# shows its full record. It began in the European COVID-19 Forecast Hub
-# (covid19-forecast-hub-europe_archive, from Jul 2021) and moved into RespiCast-Covid19
-# in Oct 2024; ILI/ARI began in the 2023/24 flu and ARI hubs and moved into
-# RespiCast-SyndromicIndicators at the same reorganisation, marked by the dashed line.
+# Window: from the RespiCast launch (first round of the 2023/24 flu hub) to the present.
+# COVID-19 hospitalisations is drawn from whichever hub was carrying it at the time --
+# the European COVID-19 Forecast Hub (covid19-forecast-hub-europe_archive) until the
+# October-2024 reorganisation, RespiCast-Covid19 after it -- so its line is continuous
+# across the window rather than starting only when the current repo opened.
 #
 # Run:  Rscript code/05_figures/fig_respicast_participation.R
 
@@ -47,9 +47,9 @@ w <- read_csv(file.path(params$output_dir, "hub_coverage_weekly.csv"), show_col_
   filter(indicator %in% IND) %>%
   mutate(week = as.Date(week), indicator = factor(indicator, levels = IND))
 
-HANDOVER <- as.Date("2024-10-21")   # both hub families reorganised into the current repos
-
-XLIM <- c(min(w$week), max(w$week))
+# RespiCast launch = the first round of its earliest hub (the 2023/24 flu hub).
+LAUNCH <- min(w$week[!grepl("covid_archive", w$hub)])
+XLIM   <- c(LAUNCH, max(w$week))
 
 # winter bands, clamped to the plotted range
 yrs   <- sort(unique(lubridate::year(w$week)))
@@ -68,40 +68,39 @@ grid <- expand_grid(indicator = factor(IND, levels = IND),
   mutate(ens_countries = ifelse(!is.na(has_ensemble) & has_ensemble, ensemble_locations, NA_real_))
 
 # one x scale object, reused verbatim by both panels so they align exactly
+# major breaks sit ON the year boundaries, with a visible gridline, so the year-to-year
+# transitions are readable; quarters give a finer minor rule.
 x_scale <- scale_x_date(date_breaks = "1 year", date_labels = "%Y",
                         limits = XLIM, expand = expansion(mult = c(0.02, 0.02)))
 winter <- geom_rect(data = bands, inherit.aes = FALSE,
                     aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf),
                     fill = BAND, alpha = 0.9)
-handover <- geom_vline(xintercept = HANDOVER, linetype = "solid",
-                       linewidth = 0.4, colour = "#9a9992")
+# year boundaries, drawn AFTER the bands so they stay visible inside them
+year_starts <- seq(as.Date(paste0(lubridate::year(XLIM[1]) + 1, "-01-01")), XLIM[2], by = "1 year")
+yearline <- geom_vline(xintercept = year_starts, linewidth = 0.35, colour = "#a9a8a2")
 
 # ---- |-(A) contributing models per week ----
 pA <- ggplot(grid, aes(week, n_models, colour = indicator)) +
-  winter +
-  handover +
+  winter + yearline +
   geom_hline(yintercept = 5, linetype = "22", linewidth = 0.4, colour = MUTED) +
   annotate("text", x = XLIM[2], y = 5, label = " 5 models", hjust = 0, vjust = -0.4,
            size = 2.7, colour = MUTED) +
-  annotate("text", x = HANDOVER, y = 20.4, label = "hubs reorganised, Oct 2024 ",
-           hjust = 1, size = 2.7, colour = "#8a8982") +
   geom_line(linewidth = 0.55, na.rm = TRUE) +
   scale_colour_manual(values = COL, drop = FALSE) +
   x_scale +
   scale_y_continuous(breaks = seq(0, 20, 5), limits = c(0, 21), expand = c(0, 0)) +
-  labs(tag = "A", title = "Contributing models per weekly round", x = NULL, y = "models") +
+  labs(tag = "A", title = "Contributing models per weekly round", x = NULL, y = "Models") +
   theme_sci() + coord_cartesian(clip = "off") +
   theme(axis.text.x = element_blank())     # x labels live on panel B only
 
 # ---- |-(B) countries covered by the published ensemble ----
 pB <- ggplot(grid, aes(week, ens_countries, colour = indicator)) +
-  winter +
-  handover +
+  winter + yearline +
   geom_line(linewidth = 0.55, na.rm = TRUE) +
   scale_colour_manual(values = COL, drop = FALSE) +
   x_scale +
   scale_y_continuous(breaks = seq(0, 30, 10), limits = c(0, 33), expand = c(0, 0)) +
-  labs(tag = "B", title = "Countries covered by the published ensemble", x = NULL, y = "countries") +
+  labs(tag = "B", title = "Countries covered by the published ensemble", x = NULL, y = "Countries") +
   theme_sci()
 
 fig <- pA / pB +
