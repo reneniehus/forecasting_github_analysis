@@ -29,7 +29,10 @@ COL <- c("ILI incidence"             = "#D55E00",   # Okabe-Ito vermillion
          "ARI incidence"             = "#009E73",   # Okabe-Ito bluish green
          "COVID-19 hospitalisations" = "#0072B2")   # Okabe-Ito blue
 INK <- "#2b2b28"; MUTED <- "#6f6e69"; RULE <- "#d8d7d1"; BAND <- "#f2f1ec"
-GAP <- "#D55E00"
+# annotation colour for the 2026 gap: a muted purple, deliberately NOT one of the
+# three indicator hues (vermillion / green / blue), so the band, the asterisk and the
+# footnote read as annotation rather than a fourth data series
+GAP <- "#7A5195"
 
 theme_sci <- function(base = 10.5) {
   theme_minimal(base_size = base) +
@@ -65,6 +68,10 @@ grid <- expand_grid(indicator = factor(IND, levels = IND),
          n_models     = ifelse(hub_ran, n_models,     NA_integer_),   # NA -> line breaks
          eu_countries = ifelse(hub_ran, eu_countries, NA_integer_))
 
+LAUNCH   <- XLIM[1]                       # first round of the earliest RespiCast hub
+launchln <- geom_vline(xintercept = LAUNCH, linetype = "dotted",
+                       linewidth = 0.5, colour = MUTED)
+
 x_scale  <- scale_x_date(date_breaks = "1 year", date_labels = "%Y", limits = XLIM,
                          expand = expansion(mult = c(0.02, 0.02)))
 winter   <- geom_rect(data = bands, inherit.aes = FALSE,
@@ -74,17 +81,15 @@ yearline <- geom_vline(xintercept = seq(as.Date(paste0(lubridate::year(XLIM[1]) 
                        linewidth = 0.35, colour = "#a9a8a2")
 # the 2026 transition gap, drawn above the winter band so it stays visible inside it
 gapband  <- annotate("rect", xmin = GAP_X[1], xmax = GAP_X[2] + 6,
-                     ymin = -Inf, ymax = Inf, fill = GAP, alpha = 0.13)
+                     ymin = -Inf, ymax = Inf, fill = GAP, alpha = 0.16)
 gapstar  <- function(y) annotate("text", x = mean(GAP_X), y = y, label = "*",
                                  size = 5, colour = GAP, fontface = "bold")
 
 # ---- |-(A) contributing models per week ----
 pA <- ggplot(grid, aes(week, n_models, colour = indicator)) +
-  winter + yearline + gapband + gapstar(19.6) +
-  geom_hline(yintercept = 5, linetype = "22", linewidth = 0.4, colour = MUTED) +
-  # sits in the empty summer-2024 gap between hub generations, clear of every line
-  annotate("text", x = as.Date("2024-06-20"), y = 5, label = "5 models", hjust = 0, vjust = -0.5,
-           size = 2.7, colour = MUTED) +
+  winter + yearline + gapband + gapstar(19.6) + launchln +
+  annotate("text", x = LAUNCH + 22, y = 10.5, label = "RespiCast launch",
+           angle = 90, hjust = 0, vjust = 0.5, size = 2.9, colour = MUTED) +
   geom_line(linewidth = 0.55, na.rm = TRUE) +
   scale_colour_manual(values = COL, drop = FALSE) +
   x_scale +
@@ -94,7 +99,7 @@ pA <- ggplot(grid, aes(week, n_models, colour = indicator)) +
 
 # ---- |-(B) EU/EEA countries covered by the ensemble ----
 pB <- ggplot(grid, aes(week, eu_countries, colour = indicator)) +
-  winter + yearline + gapband + gapstar(28) +
+  winter + yearline + gapband + gapstar(28) + launchln +
   geom_line(linewidth = 0.55, na.rm = TRUE) +
   scale_colour_manual(values = COL, drop = FALSE) +
   x_scale +
@@ -106,8 +111,8 @@ pB <- ggplot(grid, aes(week, eu_countries, colour = indicator)) +
 fig <- pA / pB +
   patchwork::plot_layout(heights = c(1, 1), guides = "collect") +
   patchwork::plot_annotation(
-    caption = "* 24 Jun - 5 Aug 2026: seven consecutive rounds with no ensemble for any EU/EEA country, following ECDC's transition of\n   surveillance reporting from TESSy to EpiPulse Cases, which paused the ERVISS data feed.",
-    theme = theme(plot.caption = element_text(hjust = 0, colour = MUTED, size = 8.2, lineheight = 1.1),
+    caption = "* 24 Jun - 5 Aug 2026: seven weeks without ensembles for EU/EEA countries, following ECDC's transition of\n   surveillance reporting from TESSy to EpiPulse Cases.",
+    theme = theme(plot.caption = element_text(hjust = 0, colour = GAP, size = 8.4, lineheight = 1.1),
                   plot.caption.position = "plot")) &
   theme(legend.position = "top", legend.title = element_blank(),
         legend.key.width = unit(14, "pt"), legend.margin = margin(0, 0, 2, 0),
