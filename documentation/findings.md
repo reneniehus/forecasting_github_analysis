@@ -213,3 +213,44 @@ Supporting figure: `output/figures/covid_hosp_continuity.png`
 Caveat: the archive also holds experimental ensemble variants (`ensembles/data-processed/`:
 `EuroCOVIDhub-mean`, `-median`, relative-skill-weighted). These are alternative combinations of the
 same weekly submissions and are **not** counted here; only the operational `EuroCOVIDhub-ensemble` is.
+
+## The 2026 break: TESSy decommissioning
+
+**Cause — stated by ECDC itself.** The truth data feeding RespiCast is ERVISS, published weekly at
+`EU-ECDC/Respiratory_viruses_weekly_data`. Its README carried this notice, committed **2026-05-25**
+("Update README with TESSy decommissioning notice"):
+
+> *"The European Surveillance System (TESSy) is being decommissioned and replaced by EpiPulse Cases.
+> ERVISS data cannot be updated during this transition, but publication will resume on 22 June."*
+
+The resume slipped. The current README reads:
+
+> *"Publication of ERVISS resumed on 26 June 2026 following the transition of reporting surveillance
+> data from The European Surveillance System (TESSy), which has been decommissioned, to EpiPulse Cases
+> (EPC). As a result of this transition, we have identified some inconsistencies in data from
+> individual countries… During this period, updates of data for download from GitHub will be paused."*
+
+**Length of the data outage.** The repo's weekly `commit_as_of_<date>` commits are the publication
+events. The last before the pause is **2026-05-22**; the next is **2026-08-07** — **77 days,
+11 weeks** with no data update. (Note the website resumed 26 June, but the *GitHub* download files
+stayed paused ~6 further weeks during data-quality remediation.)
+
+**Effect on RespiCast forecasts.**
+
+| Hub | Rounds lost | Dates | First round back |
+|---|---:|---|---|
+| RespiCast-Covid19 | **7 consecutive** | 24 Jun; 1, 8, 15, 22, 29 Jul; 5 Aug 2026 | 12 Aug 2026 |
+| RespiCast-SyndromicIndicators (ILI/ARI) | **3** (longest run 2) | 24 Jun; 29 Jul; 5 Aug 2026 | 12 Aug 2026 |
+
+ILI/ARI degraded rather than stopped: the four rounds from 1–22 Jul ran on **ECDC's own two models
+only** (`ECDC-SARIMA`, `ECDC-soca_simplex`) — every external team was absent. Both hubs resumed on
+**12 Aug 2026**, the first Wednesday round after ERVISS data returned on Friday 7 Aug.
+
+**Two honest qualifications.** (i) The forecast outage begins about **five weeks after** the data
+outage: data stopped 22 May, but rounds ran normally to 17 Jun on the last available truth data, so
+the forecast break (7 weeks) is shorter than the data break (11 weeks). (ii) It falls in the deep
+off-season, when rounds were already down to ~2 models, so the operational cost was far lower than an
+equivalent break in winter would have been.
+
+Evidence: `code/03_hubs/extract_2026_break.R` → `output/break_2026.csv`;
+figure `output/figures/break_2026.png` (`code/05_figures/fig_break_2026.R`).
