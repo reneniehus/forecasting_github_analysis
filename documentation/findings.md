@@ -180,3 +180,36 @@ through 2024 — so RespiCast rebuilt geographic reach from a very low base rath
 Scope: "RespiCast" here spans 2023-11-15 → 2026-07-15 and covers the two current hubs plus the
 2023/24 flu and ARI hubs (already publishing under `respicast-hubEnsemble`). It excludes the
 predecessor EU COVID-19 Forecast Hub, a separate earlier programme. Winter = October–March.
+
+## "Produced nearly uninterrupted since 2021" — the numbers
+
+**Repositories carrying COVID-19 hospitalisation forecasts: exactly two.** Checked against all 23
+`european-modelling-hubs` repos; `covid19-forecast-hub-europe-submissions`, `autosubmission-*` and
+`covid19-forecast-hub-europe-baseline` contain **zero** forecast CSVs (tooling only).
+
+| | European COVID-19 Forecast Hub | RespiCast-Covid19 | Combined |
+|---|---|---|---|
+| Repo | `covid19-forecast-hub-europe_archive` | `RespiCast-Covid19` | — |
+| Window | 2021-07-26 → 2024-10-14 | 2024-10-21 → 2026-06-22 | **2021-07-26 → 2026-06-22** |
+| Weeks with forecasts | 167 | 88 | **255** |
+| Weeks with an ensemble | 128 | 87 | 215 |
+| Median models / round | 4 | 8.5 | 7 |
+| Distinct models | 20 | 17 | 36 |
+
+- **Span: 58 months** (4.8 years) = 257 ISO weeks.
+- **Forecasts submitted in 255 of 257 weeks (99.2%).** Only two weeks have none — **2024-05-13** and
+  **2024-09-09** — and each is isolated: the **longest interruption is a single week**.
+- **The handover is seamless.** The archive's last round (2024-10-14) is the ISO week immediately
+  before RespiCast's first (2024-10-21) — no gap at the transition.
+
+**Important qualifier.** "Nearly uninterrupted" holds for *forecast submission*, not for the
+*published ensemble*: an ensemble appears in **215 of 257 weeks (84.3%)**, and the longest run with
+forecasts but **no ensemble is 24 consecutive weeks** (mid-2024, as the predecessor hub wound down).
+Under RespiCast the ensemble is near-continuous again (87 of 88 weeks, 99%).
+
+Supporting figure: `output/figures/covid_hosp_continuity.png`
+(`code/05_figures/fig_covid_continuity.R`).
+
+Caveat: the archive also holds experimental ensemble variants (`ensembles/data-processed/`:
+`EuroCOVIDhub-mean`, `-median`, relative-skill-weighted). These are alternative combinations of the
+same weekly submissions and are **not** counted here; only the operational `EuroCOVIDhub-ensemble` is.
