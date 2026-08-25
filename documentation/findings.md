@@ -246,6 +246,23 @@ ILI/ARI degraded rather than stopped: the four rounds from 1–22 Jul ran on **E
 only** (`ECDC-SARIMA`, `ECDC-soca_simplex`) — every external team was absent. Both hubs resumed on
 **12 Aug 2026**, the first Wednesday round after ERVISS data returned on Friday 7 Aug.
 
+### Was an ensemble produced during the interruption?
+
+Not for COVID-19 — but ILI/ARI kept one going. The two hubs failed differently:
+
+| Hub | Last ensemble before | First ensemble after | Rounds with no ensemble |
+|---|---|---|---:|
+| RespiCast-Covid19 | **17 Jun 2026** | **12 Aug 2026** | **7 consecutive** (24 Jun; 1, 8, 15, 22, 29 Jul; 5 Aug) |
+| RespiCast-SyndromicIndicators | 22 Jul 2026 | 12 Aug 2026 | 3 in total (24 Jun; 29 Jul, 5 Aug), longest run 2 |
+
+For COVID-19 the two published ensembles are **56 days = exactly 8 weeks apart**, with **7 weekly
+rounds missed** in between. ILI/ARI never lost more than two rounds in a row, because `ECDC-SARIMA`
+and `ECDC-soca_simplex` kept submitting and the hub kept combining them.
+
+The hubs did not stop running: the **quantile baseline was generated every single week** in both hubs
+throughout (24 Jun – 5 Aug inclusive). For COVID-19 the automation ran and produced a baseline but
+received **zero model submissions**, so no ensemble could be formed.
+
 **Two honest qualifications.** (i) The forecast outage begins about **five weeks after** the data
 outage: data stopped 22 May, but rounds ran normally to 17 Jun on the last available truth data, so
 the forecast break (7 weeks) is shorter than the data break (11 weeks). (ii) It falls in the deep

@@ -46,21 +46,26 @@ pA <- ggplot(erv, aes(date, y = 1, fill = lab)) +
 rc <- d %>% filter(source != "ERVISS data feed") %>%
   group_by(source) %>%
   complete(date = seq(min(date), XLIM[2], by = 7)) %>% ungroup() %>%
-  mutate(models = ifelse(is.na(models), 0L, models),
-         status = case_when(models == 0                  ~ "No forecasts",
-                            models <= 2                  ~ "ECDC in-house models only",
-                            TRUE                         ~ "Full multi-model round"),
-         status = factor(status, levels = c("Full multi-model round", "ECDC in-house models only", "No forecasts")),
+  mutate(models   = ifelse(is.na(models), 0L, models),
+         ensemble = ifelse(is.na(ensemble), FALSE, ensemble),
+         # the question is what reached users, so classify by the ENSEMBLE, noting
+         # the weeks it rested on ECDC's own two models alone
+         status = case_when(!ensemble            ~ "No ensemble published",
+                            models <= 2          ~ "Ensemble, ECDC in-house models only",
+                            TRUE                 ~ "Ensemble, full multi-model round"),
+         status = factor(status, levels = c("Ensemble, full multi-model round",
+                                            "Ensemble, ECDC in-house models only",
+                                            "No ensemble published")),
          source = factor(source, levels = c("RespiCast-SyndromicIndicators", "RespiCast-Covid19")))
 
 pB <- ggplot(rc, aes(date, source, fill = status)) +
   geom_tile(width = 6.4, height = 0.62) +
-  scale_fill_manual(values = c("Full multi-model round" = OK,
-                               "ECDC in-house models only" = THIN,
-                               "No forecasts" = NONE), name = NULL) +
+  scale_fill_manual(values = c("Ensemble, full multi-model round" = OK,
+                               "Ensemble, ECDC in-house models only" = THIN,
+                               "No ensemble published" = NONE), name = NULL) +
   scale_x_date(limits = XLIM, date_breaks = "1 month", date_labels = "%b", expand = c(0.01, 0)) +
-  labs(tag = "B", title = "RespiCast weekly rounds",
-       subtitle = "COVID-19: 7 consecutive rounds lost (24 Jun - 5 Aug). ILI/ARI: 3 rounds lost.",
+  labs(tag = "B", title = "RespiCast ensemble, by weekly round",
+       subtitle = "COVID-19: no ensemble for 7 consecutive rounds, 24 Jun - 5 Aug. ILI/ARI: only 3 rounds missed.",
        x = "2026", y = NULL) +
   theme_minimal(base_size = 10.5) +
   theme(panel.grid = element_blank(), axis.text = element_text(colour = MUTED),
