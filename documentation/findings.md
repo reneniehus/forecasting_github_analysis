@@ -248,20 +248,28 @@ only** (`ECDC-SARIMA`, `ECDC-soca_simplex`) — every external team was absent. 
 
 ### Was an ensemble produced during the interruption?
 
-Not for COVID-19 — but ILI/ARI kept one going. The two hubs failed differently:
+**Not for any EU/EEA country, for any indicator, for seven consecutive rounds.**
 
-| Hub | Last ensemble before | First ensemble after | Rounds with no ensemble |
-|---|---|---|---:|
-| RespiCast-Covid19 | **17 Jun 2026** | **12 Aug 2026** | **7 consecutive** (24 Jun; 1, 8, 15, 22, 29 Jul; 5 Aug) |
-| RespiCast-SyndromicIndicators | 22 Jul 2026 | 12 Aug 2026 | 3 in total (24 Jun; 29 Jul, 5 Aug), longest run 2 |
+Asking merely whether an ensemble *file* exists gives the wrong answer. Through July the ILI/ARI
+ensembles were still produced — but only for **Switzerland, England and Northern Ireland**, none of
+them EU/EEA. Those countries reach the hub through a **second, independent truth source**: the
+syndromic hub imports WHO **FluID** on its own schedule (`.github/workflows/fluID.yml`,
+`target-data/FluID/`), and ERVISS itself carries neither CH nor the UK (28 countries, none of them).
+So when TESSy went down, the EU/EEA feed stopped while FluID kept flowing, and ECDC's own two models
+(`ECDC-SARIMA`, `ECDC-soca_simplex`) went on forecasting those three non-EU countries alone.
 
-For COVID-19 the two published ensembles are **56 days = exactly 8 weeks apart**, with **7 weekly
-rounds missed** in between. ILI/ARI never lost more than two rounds in a row, because `ECDC-SARIMA`
-and `ECDC-soca_simplex` kept submitting and the hub kept combining them.
+EU/EEA countries in the published ensemble, per round:
 
-The hubs did not stop running: the **quantile baseline was generated every single week** in both hubs
-throughout (24 Jun – 5 Aug inclusive). For COVID-19 the automation ran and produced a baseline but
-received **zero model submissions**, so no ensemble could be formed.
+| Round | ILI | ARI | COVID-19 hosp. |
+|---|---:|---:|---:|
+| 17 Jun 2026 | 16 | 13 | 6 |
+| 24 Jun – 5 Aug (7 rounds) | **0** | **0** | **0** |
+| 12 Aug 2026 | 17 | 14 | 7 |
+
+So all three indicators lost EU/EEA ensemble coverage over exactly the same window,
+**24 June – 5 August 2026**: seven consecutive weekly rounds, with the last ensemble on **17 June**
+and the next on **12 August** (56 days, 8 weeks apart). The hubs kept running throughout — the
+quantile baseline was generated every week — but for member states nothing was published.
 
 **Two honest qualifications.** (i) The forecast outage begins about **five weeks after** the data
 outage: data stopped 22 May, but rounds ran normally to 17 Jun on the last available truth data, so

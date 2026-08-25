@@ -18,7 +18,9 @@ INK  <- "#2b2b28"; MUTED <- "#6f6e69"; RULE <- "#d8d7d1"
 d <- read_csv(file.path(params$output_dir, "break_2026.csv"), show_col_types = FALSE) %>%
   mutate(date = as.Date(date)) %>% filter(date >= as.Date("2026-01-01"))
 
-XLIM <- c(as.Date("2026-01-01"), max(d$date))
+# end at the last round BOTH hubs have completed: the current week's ensemble runs
+# Wednesday 23:40 UTC, so including it would show a false drop to zero
+XLIM <- c(as.Date("2026-01-01"), as.Date("2026-08-19"))
 
 # ---- |-(A) ERVISS weekly publications ----
 erv <- d %>% filter(source == "ERVISS data feed") %>%
@@ -42,40 +44,51 @@ pA <- ggplot(erv, aes(date, y = 1, fill = lab)) +
         legend.text = element_text(size = 8.5, colour = INK), legend.margin = margin(0, 0, 2, 0),
         plot.margin = margin(4, 10, 2, 6))
 
-# ---- |-(B) RespiCast rounds ----
-rc <- d %>% filter(source != "ERVISS data feed") %>%
-  group_by(source) %>%
-  complete(date = seq(min(date), XLIM[2], by = 7)) %>% ungroup() %>%
-  mutate(models   = ifelse(is.na(models), 0L, models),
-         ensemble = ifelse(is.na(ensemble), FALSE, ensemble),
-         # the question is what reached users, so classify by the ENSEMBLE, noting
-         # the weeks it rested on ECDC's own two models alone
-         status = case_when(!ensemble            ~ "No ensemble published",
-                            models <= 2          ~ "Ensemble, ECDC in-house models only",
-                            TRUE                 ~ "Ensemble, full multi-model round"),
-         status = factor(status, levels = c("Ensemble, full multi-model round",
-                                            "Ensemble, ECDC in-house models only",
-                                            "No ensemble published")),
-         source = factor(source, levels = c("RespiCast-SyndromicIndicators", "RespiCast-Covid19")))
+# ---- |-(B) EU/EEA countries actually covered by the published ensemble ----
+# Whether an ensemble "exists" is the wrong test: through July the ILI/ARI ensembles
+# were still produced, but only for Switzerland, England and Northern Ireland, whose
+# data reaches the hub through WHO FluID rather than ERVISS. Counting EU/EEA countries
+# shows what member states could actually see -- which is nothing, for seven rounds.
+IND <- c("ILI incidence", "ARI incidence", "COVID-19 hospitalisations")
+COL <- c("ILI incidence" = "#D55E00", "ARI incidence" = "#009E73",
+         "COVID-19 hospitalisations" = "#0072B2")
 
-pB <- ggplot(rc, aes(date, source, fill = status)) +
-  geom_tile(width = 6.4, height = 0.62) +
-  scale_fill_manual(values = c("Ensemble, full multi-model round" = OK,
-                               "Ensemble, ECDC in-house models only" = THIN,
-                               "No ensemble published" = NONE), name = NULL) +
+ec <- read_csv(file.path(params$output_dir, "ensemble_countries_2026.csv"), show_col_types = FALSE) %>%
+  mutate(date = as.Date(date),
+         indicator = ifelse(target == "hospital admissions", "COVID-19 hospitalisations", target),
+         indicator = factor(indicator, levels = IND)) %>%
+  filter(date >= XLIM[1])
+
+# weeks with no ensemble at all must read as 0, not as a missing point
+gridB <- expand_grid(indicator = factor(IND, levels = IND),
+                     date = seq(min(ec$date), XLIM[2], by = 7)) %>%
+  left_join(select(ec, indicator, date, eu_countries), by = c("indicator", "date")) %>%
+  mutate(eu_countries = ifelse(is.na(eu_countries), 0L, eu_countries))
+
+pB <- ggplot(gridB, aes(date, eu_countries, colour = indicator)) +
+  annotate("rect", xmin = as.Date("2026-06-21"), xmax = as.Date("2026-08-09"),
+           ymin = -Inf, ymax = Inf, fill = NONE, alpha = 0.10) +
+  annotate("text", x = as.Date("2026-07-15"), y = 20, label = "no EU/EEA ensemble\n24 Jun - 5 Aug",
+           size = 2.9, colour = NONE, lineheight = 0.95) +
+  geom_line(linewidth = 0.6) +
+  scale_colour_manual(values = COL, name = NULL) +
   scale_x_date(limits = XLIM, date_breaks = "1 month", date_labels = "%b", expand = c(0.01, 0)) +
-  labs(tag = "B", title = "RespiCast ensemble, by weekly round",
-       subtitle = "COVID-19: no ensemble for 7 consecutive rounds, 24 Jun - 5 Aug. ILI/ARI: only 3 rounds missed.",
-       x = "2026", y = NULL) +
+  scale_y_continuous(breaks = seq(0, 25, 5), limits = c(0, 26), expand = c(0, 0)) +
+  labs(tag = "B", title = "EU/EEA countries covered by the published RespiCast ensemble",
+       subtitle = "Zero for all three indicators across seven consecutive rounds.",
+       x = "2026", y = "EU/EEA countries") +
   theme_minimal(base_size = 10.5) +
-  theme(panel.grid = element_blank(), axis.text = element_text(colour = MUTED),
-        axis.title.x = element_text(colour = MUTED, size = 9.5),
-        plot.title = element_text(colour = INK, size = 11), plot.subtitle = element_text(colour = MUTED, size = 8.6),
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_line(linewidth = 0.25, colour = RULE),
+        axis.text = element_text(colour = MUTED), axis.title = element_text(colour = MUTED, size = 9.5),
+        plot.title = element_text(colour = INK, size = 11),
+        plot.subtitle = element_text(colour = MUTED, size = 8.6),
         plot.tag = element_text(face = "bold", size = 11.5), plot.tag.position = c(0, 1),
-        legend.position = "bottom", legend.key.size = unit(9, "pt"),
+        legend.position = "bottom", legend.key.width = unit(14, "pt"),
         legend.text = element_text(size = 8.5, colour = INK), legend.margin = margin(0, 0, 0, 0),
         plot.margin = margin(6, 10, 4, 6))
 
-fig <- pA / pB + patchwork::plot_layout(heights = c(1, 1.55))
-ggsave(file.path(params$figure_dir, "break_2026.png"), fig, width = 8.8, height = 3.9, dpi = 200, bg = "white")
+fig <- pA / pB + patchwork::plot_layout(heights = c(0.85, 2))
+ggsave(file.path(params$figure_dir, "break_2026.png"), fig, width = 8.8, height = 5.0, dpi = 200, bg = "white")
 cat("figure -> output/figures/break_2026.png\n")
