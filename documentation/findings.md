@@ -279,3 +279,48 @@ equivalent break in winter would have been.
 
 Evidence: `code/03_hubs/extract_2026_break.R` → `output/break_2026.csv`;
 figure `output/figures/break_2026.png` (`code/05_figures/fig_break_2026.R`).
+
+### Reconciling the two date pairs: 25 May / 7 Aug vs 24 Jun / 5 Aug
+
+Both are correct; they bound **different** outages, four and a half weeks apart.
+
+| | Starts | Ends | Length |
+|---|---|---|---|
+| **Data** outage (ERVISS GitHub feed) | last file 22 May, notice 25 May | 7 Aug | 11 weeks |
+| **Ensemble** outage (EU/EEA, all indicators) | 24 Jun | 5 Aug | 7 rounds |
+
+Exact ERVISS record (`git log`, `EU-ECDC/Respiratory_viruses_weekly_data`):
+
+| Event | When |
+|---|---|
+| Last publication before the pause | `commit_as_of_2026-05-22`, Fri 22 May 2026 11:49 |
+| TESSy decommissioning notice added | **Mon 25 May 2026, 11:12-11:14** (3 README commits) |
+| Resume date slipped 22 Jun -> 26 Jun | Tue 23 Jun 2026 |
+| Website resumed; *GitHub downloads still paused* | Fri 26 Jun 2026 |
+| Publication resumes | `commit_as_of_2026-08-07`, Fri 7 Aug 2026 10:52 |
+
+11 missed Friday publications. Note the split: the ERVISS **website** resumed 26 June, the **GitHub
+data files** — the ones RespiCast consumes — only on 7 August. (Unrelated: 15 May was also skipped.)
+
+Confirmed independently downstream: `RespiCast-SyndromicIndicators/target-data/ERVISS/snapshots/`
+jumps `2026-05-22` -> `2026-08-07`; the syndromic hub's "Updating Truth Data repo" commits do the
+same; the COVID hub's `target-data/` has **no commit of any kind** between those dates. FluID
+snapshots kept arriving through July, which is why CH/GB-\* survived.
+
+Why the forecast break starts later and ends earlier:
+
+* **Later.** The hubs degraded rather than stopped. With truth frozen at 22 May, teams kept
+  submitting for four more rounds (27 May, 3, 10, 17 Jun) on ageing data — ILI fell from 12 models /
+  19 EU/EEA countries to 2 / 16 — and the last EU/EEA ensemble went out **17 June**. On 24 Jun only
+  `respicast-quantileBaseline` submitted and no ensemble was produced at all. From 1-22 Jul the
+  syndromic ensemble ran on CH, GB-ENG, GB-NIR only; the COVID baseline file was **empty (0
+  locations)**. On 29 Jul and 5 Aug the syndromic hub too was baseline-only, no ensemble.
+* **Earlier.** Weekly cadence. Data landed Friday 7 Aug; truth import runs Fri 18:00 UTC; the next
+  deadline was Wed 12 Aug 23:59 CET. So 5 Aug is the last dark round and **12 Aug** the first back
+  (syndromic: 9 files, 6 external teams, ensemble over 25 locations; COVID: 7 EU/EEA countries).
+
+Phrasing that survives both readings:
+
+> ERVISS data publication stopped after 22 May 2026 and resumed on 7 August (11 weeks). Forecast
+> rounds continued on the last available data until 17 June; the EU/EEA ensemble was then absent for
+> seven consecutive rounds, 24 June to 5 August 2026, returning on 12 August.
