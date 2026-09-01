@@ -6,6 +6,10 @@
 #   n_models      models that submitted at least one EU/EEA location that round
 #   eu_countries  EU/EEA locations in the published ensemble that round
 #
+# COVID-19 hospitalisations is then back-filled before October 2024 from the European
+# COVID-19 Forecast Hub archive (see the splice block below), so the indicator's record
+# is continuous from 2021-07-26 rather than beginning when RespiCast-Covid19 opened.
+#
 # The EU/EEA restriction is what makes the 2026 break visible. Through July 2026 the
 # syndromic ensemble was still produced, but only for Switzerland, England and
 # Northern Ireland -- non-EU countries whose data reaches the hub via WHO FluID
@@ -79,13 +83,49 @@ ran <- pmap_dfr(list(HUBS$dir, HUBS$hub), function(dir, hub) {
   separate_rows(inds, sep = "\\|") %>% rename(indicator = inds) %>%
   distinct(indicator, week) %>% mutate(hub_ran = TRUE)
 
-weekly <- all %>%
+weekly_live <- all %>%
   mutate(week = lubridate::floor_date(as.Date(origin_date), "week", week_start = 1)) %>%
   group_by(indicator, week) %>%
   summarise(n_models     = n_distinct(model[!model %in% c(ENS, BASE)]),
             has_ensemble = any(model == ENS),
             eu_countries = n_distinct(location[model == ENS]),
-            .groups = "drop") %>%
+            .groups = "drop")
+
+# ---- |-COVID-19 hospitalisations before October 2024 ----
+# RespiCast-Covid19 only opens on 2024-10-21. Before that the same indicator was
+# carried by the European COVID-19 Forecast Hub (covid19-forecast-hub-europe_archive),
+# whose record runs 2021-07-26 -> 2024-10-14 with no overlap. Splicing it in makes the
+# COVID line continuous across the plotted window instead of starting mid-2024.
+#
+# Source is the committed output/hub_submissions.csv rather than a fresh clone: the
+# archive is frozen (last commit 14 Apr 2025), so re-scanning it cannot change the
+# answer, and that file already carries the per-file `locations` list the EU/EEA filter
+# needs. Counting rules match the live hubs above -- models exclude the ensemble and the
+# baseline; eu_countries counts EU/EEA locations in the published ensemble.
+step("Splicing in the European COVID-19 Forecast Hub archive (pre-Oct 2024)")
+arch <- read_csv(file.path(params$output_dir, "hub_submissions.csv"), show_col_types = FALSE) %>%
+  filter(hub == "covid_archive", indicator == "COVID-19 hospitalisations") %>%
+  mutate(week = lubridate::floor_date(as.Date(origin_date), "week", week_start = 1)) %>%
+  separate_rows(locations, sep = ",") %>%
+  rename(location = locations) %>%
+  filter(location %in% EU_EEA)
+
+FIRST_LIVE <- min(weekly_live$week[weekly_live$indicator == "COVID-19 hospitalisations"])
+weekly_arch <- arch %>%
+  filter(week < FIRST_LIVE) %>%                        # no double-count at the handover
+  group_by(indicator, week) %>%
+  summarise(n_models     = n_distinct(model[role == "model"]),
+            has_ensemble = any(role == "ensemble"),
+            eu_countries = n_distinct(location[role == "ensemble"]),
+            .groups = "drop")
+say(sprintf("archive: %d weeks, %s -> %s (RespiCast-Covid19 opens %s)",
+            nrow(weekly_arch), min(weekly_arch$week), max(weekly_arch$week), FIRST_LIVE))
+
+# the archive ran every week it has a file, so those weeks are hub_ran = TRUE as well
+ran <- bind_rows(ran, transmute(weekly_arch, indicator, week, hub_ran = TRUE)) %>%
+  distinct(indicator, week, .keep_all = TRUE)
+
+weekly <- bind_rows(weekly_live, weekly_arch) %>%
   arrange(indicator, week) %>%
   full_join(ran, by = c("indicator", "week")) %>%
   mutate(across(c(n_models, eu_countries), ~ ifelse(is.na(.x), 0L, .x)),

@@ -16,7 +16,12 @@
 #   hub not running at all           -> a BREAK in the line (summer 2024, between
 #                                       the 2023/24 hubs and the current repos)
 #
-# Colours are the Okabe-Ito colourblind-safe set.
+# COVID-19 hospitalisations is drawn from whichever hub carried it at the time: the
+# European COVID-19 Forecast Hub (covid19-forecast-hub-europe_archive) up to the October
+# 2024 reorganisation, RespiCast-Covid19 after it. Its line is therefore continuous
+# across the whole window rather than starting when the current repository opened.
+#
+# Colours are the Okabe-Ito colourblind-safe set. Output is 500 ppi.
 # Run (after code/03_hubs/extract_respicast_eu.R):
 #   Rscript code/05_figures/fig_respicast_participation.R
 
@@ -53,7 +58,13 @@ w <- read_csv(file.path(params$output_dir, "respicast_eu_weekly.csv"), show_col_
 # End on the last round every hub has completed. The current week's ensemble runs
 # Wednesday 23:40 UTC, so including it would draw a false collapse to zero.
 LAST  <- w %>% group_by(indicator) %>% summarise(m = max(week[eu_countries > 0]), .groups = "drop")
-XLIM  <- c(min(w$week), min(LAST$m))
+# The left edge stays at the RespiCast launch -- the first round of its earliest hub,
+# which is a syndromic one. COVID-19 hospitalisations now carries its full record back
+# to July 2021 from the European COVID-19 Forecast Hub archive, but that history sits
+# before the window and is deliberately clipped. What it buys the figure is a COVID line
+# unbroken from the launch onwards, instead of one that begins in October 2024.
+LAUNCH <- min(w$week[w$indicator != "COVID-19 hospitalisations"])
+XLIM   <- c(LAUNCH, min(LAST$m))
 GAP_X <- c(as.Date("2026-06-22"), as.Date("2026-08-03"))   # 7 rounds, EU/EEA coverage = 0
 
 bands <- tibble(xmin = as.Date(paste0(sort(unique(lubridate::year(w$week))), "-10-01")),
@@ -68,7 +79,6 @@ grid <- expand_grid(indicator = factor(IND, levels = IND),
          n_models     = ifelse(hub_ran, n_models,     NA_integer_),   # NA -> line breaks
          eu_countries = ifelse(hub_ran, eu_countries, NA_integer_))
 
-LAUNCH   <- XLIM[1]                       # first round of the earliest RespiCast hub
 launchln <- geom_vline(xintercept = LAUNCH, linetype = "dotted",
                        linewidth = 0.5, colour = MUTED)
 
@@ -119,5 +129,5 @@ fig <- pA / pB +
         legend.text = element_text(colour = INK, size = 9))
 
 ggsave(file.path(params$figure_dir, "respicast_participation.png"), fig,
-       width = 8.6, height = 5.9, dpi = 200, bg = "white")
+       width = 8.6, height = 5.9, dpi = 500, bg = "white")
 cat("figure -> output/figures/respicast_participation.png\n")
