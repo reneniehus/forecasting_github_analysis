@@ -324,3 +324,49 @@ Phrasing that survives both readings:
 > ERVISS data publication stopped after 22 May 2026 and resumed on 7 August (11 weeks). Forecast
 > rounds continued on the last available data until 17 June; the EU/EEA ensemble was then absent for
 > seven consecutive rounds, 24 June to 5 August 2026, returning on 12 August.
+
+## Modelling teams across the last three seasons (2023/24 – 2025/26)
+
+Counted as **teams**, not models: identifiers are `<team>-<model>`, so ISI's nine entries are one
+group. Seasons run 1 Oct – 30 Sep, which puts the Oct-2024 reorganisation on a season boundary.
+Sources: the four RespiCast-era hubs (live clones) plus the European COVID-19 Forecast Hub archive,
+so COVID-19 hospitalisations is covered in 2023/24 as well. Hub products (`respicast-hubEnsemble`,
+`respicast-quantileBaseline`, `EuroCOVIDhub-*`) and `TestTeam` are excluded; ECDC is reported apart
+as the coordinator's in-house models.
+
+**14 groups in total — 13 external teams plus ECDC.** No season had more than nine external teams.
+
+| Season | External teams | Incl. ECDC | Models |
+|---|---:|---:|---:|
+| 2023/24 | 7 | 8 | 25 |
+| 2024/25 | 9 | 10 | 30 |
+| 2025/26 (to 26 Aug) | 9 | 10 | 28 |
+
+| Team | Seasons | First | Last | Rounds | Models | Trajectory |
+|---|---|---|---|---:|---:|---|
+| ISI | 111 | 2023-12-20 | 2026-08-19 | 103 | 9 | continuous |
+| QMUL | 111 | 2023-12-20 | 2026-08-26 | 96 | 4 | continuous |
+| ItaLuxColab | 111 | 2024-02-07 | 2026-08-26 | 92 | 2 | continuous |
+| safinea | 011 | 2024-10-23 | 2026-08-19 | 63 | 3 | joined 2024/25, active |
+| RIVM | 011 | 2024-10-23 | 2026-08-19 | 58 | 1 | joined 2024/25, active |
+| IceLab | 001 | 2026-05-13 | 2026-08-26 | 4 | 1 | joined 2025/26, active |
+| MRC_GIDA | 011 | 2024-10-23 | 2026-05-27 | 23 | 4 | joined 2024/25, not seen since May 2026 |
+| NotreDame | 011 | 2024-11-06 | 2026-05-06 | 62 | 1 | joined 2024/25, not seen since May 2026 |
+| Chronos | 001 | 2026-02-11 | 2026-04-08 | 9 | 1 | 2025/26 only, 9 rounds |
+| fjordhest | 110 | 2023-10-02 | 2025-04-30 | 53 | 1 | left Apr 2025 |
+| Lydia | 110 | 2023-11-27 | 2024-10-14 | 40 | 2 | left with the archive |
+| epiforecasts | 100 | 2023-10-01 | 2024-09-02 | 58 | 3 | left with the archive |
+| CSL_PoliTo | 100 | 2023-12-13 | 2024-04-17 | 19 | 1 | one season only |
+| **ECDC** | 111 | 2023-11-15 | 2026-08-26 | 150 | 7 | coordinator, every week |
+
+**Turnover is the headline.** Of 13 external teams, only **3** (ISI, QMUL, ItaLuxColab) span all
+three seasons; **6 joined** after 2023/24 and **4 had left** before 2025/26. Median 58 rounds per
+team, range 4–103. **No team paused a whole season and came back** — departures are terminal.
+
+**Two qualifications.** (i) Three teams (MRC_GIDA, NotreDame, Chronos) were last seen in Apr–May
+2026, before the ERVISS outage; whether they have left or have simply not yet returned cannot be
+told from the record — none has submitted in the three rounds since data resumed on 12 Aug 2026.
+(ii) ISI is also the hub's technical operator, so it is not independent participation in the sense
+the other twelve are; excluding it leaves **12 external teams ever, 8 in the current season**.
+
+Evidence: `code/03_hubs/analyse_teams.R` → `output/team_seasons.csv`, `output/teams_by_season.csv`.

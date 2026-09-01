@@ -1,0 +1,15 @@
+team,seasons_active,first_season,last_season,code,rounds,models,first_sub,last_sub,max_gap_wk,max_gap_post,currently_active,last_seen_pre_outage,status,role
+ISI,3,2023/24,2025/26,111,103,9,2023-12-20,2026-08-19,25,11,TRUE,FALSE,Continuous (all three),External team
+ItaLuxColab,3,2023/24,2025/26,111,92,2,2024-02-07,2026-08-26,25,12,TRUE,FALSE,Continuous (all three),External team
+QMUL,3,2023/24,2025/26,111,96,4,2023-12-20,2026-08-26,25,11,TRUE,FALSE,Continuous (all three),External team
+Lydia,2,2023/24,2024/25,110,40,2,2023-11-27,2024-10-14,6,1,FALSE,FALSE,Stopped after 2024/25,External team
+MRC_GIDA,2,2024/25,2025/26,011,23,4,2024-10-23,2026-05-27,50,50,FALSE,TRUE,"Joined in 2024/25, still active",External team
+NotreDame,2,2024/25,2025/26,011,62,1,2024-11-06,2026-05-06,8,8,FALSE,TRUE,"Joined in 2024/25, still active",External team
+RIVM,2,2024/25,2025/26,011,58,1,2024-10-23,2026-08-19,22,22,TRUE,FALSE,"Joined in 2024/25, still active",External team
+fjordhest,2,2023/24,2024/25,110,53,1,2023-10-02,2025-04-30,25,3,FALSE,FALSE,Stopped after 2024/25,External team
+safinea,2,2024/25,2025/26,011,63,3,2024-10-23,2026-08-19,12,12,TRUE,FALSE,"Joined in 2024/25, still active",External team
+CSL_PoliTo,1,2023/24,2023/24,100,19,1,2023-12-13,2024-04-17,1,0,FALSE,FALSE,Stopped after 2023/24,External team
+Chronos,1,2025/26,2025/26,001,9,1,2026-02-11,2026-04-08,1,1,FALSE,TRUE,Joined in 2025/26,External team
+IceLab,1,2025/26,2025/26,001,4,1,2026-05-13,2026-08-26,12,12,TRUE,FALSE,Joined in 2025/26,External team
+epiforecasts,1,2023/24,2023/24,100,58,3,2023-10-01,2024-09-02,2,0,FALSE,FALSE,Stopped after 2023/24,External team
+ECDC,3,2023/24,2025/26,111,150,7,2023-11-15,2026-08-26,6,3,TRUE,FALSE,Continuous (all three),Hub coordinator (in-house)
