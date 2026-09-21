@@ -370,3 +370,49 @@ told from the record — none has submitted in the three rounds since data resum
 the other twelve are; excluding it leaves **12 external teams ever, 8 in the current season**.
 
 Evidence: `code/03_hubs/analyse_teams.R` → `output/team_seasons.csv`, `output/teams_by_season.csv`.
+
+## Modelled Smooth Point (MSP)
+
+A weekly, model-based read of each indicator, derived from the RespiCast ensemble rather than from
+surveillance. For a round with 1- and 2-week-ahead ensemble medians `f1`, `f2`, fit a straight line
+through `(1, log f1)` and `(2, log f2)` and evaluate it at horizon 0:
+
+> **MSP = exp(2·log f1 − log f2) = f1² / f2**
+
+Geometric rather than arithmetic, because incidence grows multiplicatively: the MSP is `f1` carried
+one more week back along the ensemble's own weekly growth ratio. It gives a week's value without
+leaning on that week's own provisional count.
+
+**Which week an MSP belongs to.** Horizon 0 of the round. RespiCast anchors horizons to *data
+availability*, not to the calendar: in the round of 2026-09-16, h=-1 is the last reported week (W35),
+h=0 the first unreported one (W36), h=1 is W37. So that round yields the W36 MSP.
+
+**Anchoring is recovered, never trusted.** 177 of 5,545 round x indicator x location groups in the
+2023/24 archives carry one horizon against two different `target_end_date`s — a stale ladder left
+beside the live one. The anchor is therefore derived as the modal `target_end_date - 7*horizon` and
+inconsistent rows dropped (690 of 23,187 rows, 3.0%). This also lets the legacy
+`"N wk ahead inc hosp"` COVID hub through the same code path, since its horizon convention differs
+but its target end dates do not.
+
+**Leading edge.** The newest surveillance week has no round anchored on it, so no `f1`/`f2` pair
+exists. There the latest round's 1-week-ahead median is used directly (`source = "h1_nowcast"`),
+only for indicators still being forecast — a series that stopped in 2024 gets no synthetic tail.
+
+**Coverage** (`output/msp_weekly.csv`, 5,628 rows):
+
+| Indicator | Weeks | Countries | EU/EEA | First | Last |
+|---|---:|---:|---:|---|---|
+| ILI incidence | 118 | 30 | 25 | 2023-12-10 | 2026-09-13 |
+| ARI incidence | 118 | 25 | 21 | 2023-12-10 | 2026-09-13 |
+| COVID-19 hospitalisations | 122 | 16 | 16 | 2023-09-30 | 2026-09-13 |
+
+COVID reaches back to end-2023 via the European COVID-19 Forecast Hub archive (28 in-scope rounds,
+`EuroCOVIDhub-ensemble`, quantile 0.5); ILI/ARI start with the 2023/24 hubs' first rounds.
+
+**Stability.** `f1/f2` has median 1.00 and a 1st-99th percentile range of 0.47-1.50, so the
+back-extrapolation is mild in the overwhelming majority of weeks. 76 rows (1.4%) sit beyond a
+two-fold ratio either way; the `ratio` column is carried in the output so those can be filtered.
+50 pairs were dropped where `f1` or `f2` was zero and the log is undefined.
+
+Evidence: `code/03_hubs/compute_msp.R` -> `output/msp_weekly.csv`;
+figure `output/figures/msp_ili_examples.png` (`code/05_figures/fig_msp_ili.R`).
