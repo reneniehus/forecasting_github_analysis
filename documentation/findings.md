@@ -424,26 +424,34 @@ every figure. Nothing in the figure scripts is dated: the reporting vintage, the
 and the comparison weeks are all read off the data, so the same command gives the current
 picture in any week. `--no-pull` skips the fetch.
 
-`code/05_figures/fig_msp_grid.R` draws one panel per EU/EEA country -- the last four reported
-weeks (black dots and lines), this week's MSP slope (turquoise), and the same two calendar
-weeks 52 and 104 weeks earlier (grey). `INDICATOR="ARI incidence"` or
-`INDICATOR="COVID-19 hospitalisations"` re-points it; panels are ordered by the modelled
-weekly change, steepest first, and the strip carries that change.
+`code/05_figures/fig_msp_grid.R` gives one ROW per country, stacked in order of the modelled
+weekly change (steepest rise at the top), with two columns:
 
-Three decisions worth recording:
+| Column | Shows | Series |
+|---|---|---|
+| 1 | Reported only, no modelling, last 5 weeks | black dots+lines this year; grey lines 52 and 104 weeks earlier |
+| 2 | The slope, zoomed to the last 2 weeks | turquoise MSP this year; grey MSP 52 and 104 weeks earlier |
+
+`INDICATOR="ARI incidence"` or `INDICATOR="COVID-19 hospitalisations"` re-points it.
+
+Four decisions worth recording:
 
 * **y axes are log10.** The MSP is *defined* by log-linear extrapolation, so on a log axis it
   plots as the straight line it is, and equal gradients mean equal weekly growth whatever the
-  level. On a linear axis a grey slope sitting at twice the current level reads as twice as
+  level. On a linear axis a grey line sitting at twice the current level reads as twice as
   steep for the same growth -- which would defeat the comparison the grey lines exist for. The
-  cost is that zeros cannot be drawn, so an all-zero series (Slovenia's ILI this week) drops out.
-* **The 2-years-ago slope is usually absent in autumn.** The syndromic and COVID hubs both
-  reopened on 2024-10-23, so no MSP exists for Sept 2024. The script states the absence in the
-  caption rather than silently dropping the series, and will draw it automatically once the
-  comparison weeks fall after 13 Oct 2024.
+  cost is that zeros cannot be drawn, so all-zero series (Slovenia's ILI this week) drop out.
+* **The two columns share a y scale within a row but not an x scale.** `facet_grid(scales =
+  "free")` frees y by row and x by column, so a level can be carried straight across. Column 2
+  is a two-week zoom, so a given gradient is drawn steeper there than in column 1 -- slopes are
+  comparable within a panel, not across columns. The caption says so.
+* **The 2-years-ago comparison is asymmetric in autumn.** Surveillance reaches back to mid-2022,
+  so column 1 draws it; but both hubs reopened on 2024-10-23 after the summer-2024
+  reorganisation, so no MSP exists for Sept 2024 and column 2 cannot. The caption states the
+  absence rather than silently dropping the series, and it resolves itself from about November.
 * **Luxembourg is withheld from ILI.** Its ERVISS series alternates between 0 and 2200 inside a
   single month -- a reporting artefact, not epidemiology. The exclusion list carries its reason
-  and is printed on every run.
+  and every run prints which countries were dropped and why.
 
 Current vintage (retrieved 21 Sep 2026; newest reported week W37, ending 13 Sep): ILI 12
 countries, ARI 12, COVID-19 hospitalisations 5.
