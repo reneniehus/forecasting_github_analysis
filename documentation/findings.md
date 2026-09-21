@@ -416,3 +416,34 @@ two-fold ratio either way; the `ratio` column is carried in the output so those 
 
 Evidence: `code/03_hubs/compute_msp.R` -> `output/msp_weekly.csv`;
 figure `output/figures/msp_ili_examples.png` (`code/05_figures/fig_msp_ili.R`).
+
+### Weekly MSP figures
+
+`./refresh-msp.sh` pulls the two live hubs, recomputes `output/msp_weekly.csv` and redraws
+every figure. Nothing in the figure scripts is dated: the reporting vintage, the weeks shown
+and the comparison weeks are all read off the data, so the same command gives the current
+picture in any week. `--no-pull` skips the fetch.
+
+`code/05_figures/fig_msp_grid.R` draws one panel per EU/EEA country -- the last four reported
+weeks (black dots and lines), this week's MSP slope (turquoise), and the same two calendar
+weeks 52 and 104 weeks earlier (grey). `INDICATOR="ARI incidence"` or
+`INDICATOR="COVID-19 hospitalisations"` re-points it; panels are ordered by the modelled
+weekly change, steepest first, and the strip carries that change.
+
+Three decisions worth recording:
+
+* **y axes are log10.** The MSP is *defined* by log-linear extrapolation, so on a log axis it
+  plots as the straight line it is, and equal gradients mean equal weekly growth whatever the
+  level. On a linear axis a grey slope sitting at twice the current level reads as twice as
+  steep for the same growth -- which would defeat the comparison the grey lines exist for. The
+  cost is that zeros cannot be drawn, so an all-zero series (Slovenia's ILI this week) drops out.
+* **The 2-years-ago slope is usually absent in autumn.** The syndromic and COVID hubs both
+  reopened on 2024-10-23, so no MSP exists for Sept 2024. The script states the absence in the
+  caption rather than silently dropping the series, and will draw it automatically once the
+  comparison weeks fall after 13 Oct 2024.
+* **Luxembourg is withheld from ILI.** Its ERVISS series alternates between 0 and 2200 inside a
+  single month -- a reporting artefact, not epidemiology. The exclusion list carries its reason
+  and is printed on every run.
+
+Current vintage (retrieved 21 Sep 2026; newest reported week W37, ending 13 Sep): ILI 12
+countries, ARI 12, COVID-19 hospitalisations 5.
