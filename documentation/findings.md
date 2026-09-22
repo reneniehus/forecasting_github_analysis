@@ -423,9 +423,13 @@ figure `output/figures/msp_ili_examples.png` (`code/05_figures/fig_msp_ili.R`).
 every figure. Nothing in the figure scripts is dated -- reporting vintage, weeks shown and
 comparison weeks are all read off the data -- so the same command gives the current picture
 in any week. `--no-pull` skips the fetch. `INDICATOR="ARI incidence"` or
-`INDICATOR="COVID-19 hospitalisations"` re-points `fig_msp_grid.R`.
+`INDICATOR="COVID-19 hospitalisations"` re-points `fig_slope_monitor.R`.
 
-One ROW per country, ordered by the modelled weekly change, steepest rise first:
+The figure is titled **"Slope monitor"** and its caption names the script that built it, so a
+printed copy always says where it came from. Output is a true **A4 portrait PDF** (210 x 297 mm
+with a 12 mm margin, so it prints at 100% with no dialog rescaling) plus a 300 ppi PNG;
+`PAGE=wide` gives the broad screen layout instead. One ROW per country, ordered by the modelled
+weekly change, steepest rise first:
 
 | Column | Shows | y scale |
 |---|---|---|
@@ -460,6 +464,11 @@ Design decisions worth recording:
   from about November.
 * **Luxembourg is withheld from ILI** -- its ERVISS series alternates between 0 and 2200
   inside a single month. Every run prints which countries were dropped and why.
+* **Fixed: the per-country % label followed the wrong arrow.** It was located by pasting the
+  series name onto every row of the slope table and calling `match()`, which silently resolved
+  to whichever series sorted first -- the grey "1 year ago" tip. Iceland, Greece and Estonia had
+  year-ago slopes of the opposite sign, so their labels sat on the wrong side of the zero line.
+  It now joins on location AND series, with a `stopifnot` that every kept country gets a tip.
 
 Current vintage (retrieved 22 Sep 2026; newest reported week W37, ending 13 Sep, two weeks
 behind today): ILI 12 countries (scale +-33%/wk, 2 of 23 slopes truncated), ARI 12 (+-73%/wk),

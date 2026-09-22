@@ -52,11 +52,11 @@ echo
 Rscript code/03_hubs/compute_msp.R
 Rscript code/05_figures/fig_msp_ili.R
 for ind in "ILI incidence" "ARI incidence" "COVID-19 hospitalisations"; do
-  INDICATOR="$ind" Rscript code/05_figures/fig_msp_grid.R            # 500 ppi print master
-  INDICATOR="$ind" DPI=150 Rscript code/05_figures/fig_msp_grid.R >/dev/null   # screen copy
+  INDICATOR="$ind" Rscript code/05_figures/fig_slope_monitor.R              # A4 PDF + 300 ppi PNG
+  INDICATOR="$ind" PAGE=wide Rscript code/05_figures/fig_slope_monitor.R >/dev/null   # wide screen layout
 done
 
 echo
 echo "done. Refreshed:"
 echo "   output/msp_weekly.csv"
-ls -1 output/figures/msp_*.png | sed 's/^/   /'
+ls -1 output/figures/msp_*.png output/figures/slope_monitor_* | sed 's/^/   /'
