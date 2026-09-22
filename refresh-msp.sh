@@ -52,7 +52,8 @@ echo
 Rscript code/03_hubs/compute_msp.R
 Rscript code/05_figures/fig_msp_ili.R
 for ind in "ILI incidence" "ARI incidence" "COVID-19 hospitalisations"; do
-  INDICATOR="$ind" Rscript code/05_figures/fig_msp_grid.R
+  INDICATOR="$ind" Rscript code/05_figures/fig_msp_grid.R            # 500 ppi print master
+  INDICATOR="$ind" DPI=150 Rscript code/05_figures/fig_msp_grid.R >/dev/null   # screen copy
 done
 
 echo

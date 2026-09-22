@@ -34,6 +34,9 @@ source("code/01_support/config.R"); params <- settings()
 dir.create(params$figure_dir, showWarnings = FALSE, recursive = TRUE)
 
 INDICATOR <- Sys.getenv("INDICATOR", "ILI incidence")
+# 500 ppi is the print master; the file is ~4800x8500 px and too big for some chat and
+# mail clients, so DPI=150 writes a screen-sized copy beside it (suffix _screen).
+DPI       <- as.numeric(Sys.getenv("DPI", "500"))
 N_SURV    <- 5L                      # reported weeks in the left column
 N_SLOPE   <- 2L                      # weeks the slope spans
 LAG_YEARS <- c(1L, 2L)               # historical overlays, in whole years
@@ -284,9 +287,10 @@ fig <- key / (p1 | p2) +
                   plot.caption.position = "plot", plot.title.position = "plot"))
 
 SLUG <- gsub("[^a-z0-9]+", "_", tolower(INDICATOR))
-ggsave(file.path(params$figure_dir, sprintf("msp_grid_%s.png", SLUG)), fig,
-       width = 9.6, height = 3.6 + 1.12 * length(KEEP), dpi = 500, bg = "white", limitsize = FALSE)
-cat(sprintf("figure -> output/figures/msp_grid_%s.png\n", SLUG))
+OUT  <- sprintf("msp_grid_%s%s.png", SLUG, if (DPI >= 300) "" else "_screen")
+ggsave(file.path(params$figure_dir, OUT), fig,
+       width = 9.6, height = 3.6 + 1.12 * length(KEEP), dpi = DPI, bg = "white", limitsize = FALSE)
+cat(sprintf("figure -> output/figures/%s  (%g ppi)\n", OUT, DPI))
 
 step("Countries dropped")
 eligible %>% filter(!keep) %>%
