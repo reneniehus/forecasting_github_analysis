@@ -1,35 +1,29 @@
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-### EU/EEA rows: surveillance context beside the modelled slope ##########
+### EU/EEA rows: surveillance context beside the normalised modelled slope ##########
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-# One ROW per country, stacked in order of the modelled weekly change, steepest rise
-# at the top. Two columns, answering two different questions about the same country:
+# One ROW per country, stacked in order of the modelled weekly change, steepest rise at
+# the top. Two columns answering two different questions about the same country:
 #
-#   column 1  REPORTED ONLY, no modelling. The last N_SURV reported weeks in black
-#             (dots and lines), with the same calendar weeks 52 and 104 weeks earlier
-#             in grey (lines only). Context: is this year's level and shape unusual?
-#   column 2  THE SLOPE, zoomed to the final two reported weeks. This week's MSP in
-#             turquoise, the same two weeks a year and two years earlier in grey,
-#             all lines only. Comparison: is the modelled turn steeper than usual?
+#   LEFT   REPORTED ONLY, no modelling. The last N_SURV reported weeks in black (dots and
+#          lines), the same calendar weeks 52 and 104 weeks earlier in grey (lines only).
+#          Real levels, free y per country. Context: is this year unusual?
 #
-# The two columns share a y scale within a row -- facet_grid frees y by row and x by
-# column -- so the eye can carry a level straight across. Their x scales differ: column
-# two is a zoom, and a given gradient there is drawn steeper than the same gradient in
-# column one. Compare slopes WITHIN a panel, never across the two columns.
+#   RIGHT  THE SLOPE ALONE. Each MSP slope is re-centred so its midpoint sits at zero --
+#          the level is removed, the gradient is kept, and every slope crosses the dotted
+#          zero line mid-way. Arrowheads point at the week the slope lands on; the rule
+#          further right marks today, so the gap between them IS the reporting lag.
+#
+# Because the right column is normalised it carries ONE fixed y scale for every country:
+# a steeper arrow means faster weekly growth, and that now compares across countries as
+# well as within a row. The scale is log10, which is what the MSP is defined on, so a
+# given gradient means the same growth ratio wherever it appears. It has no level, which
+# is why it has no y axis -- the magnitude is printed beside each arrow instead.
 #
 # "Exactly one year ago" is 364 days (52 whole weeks), not a calendar year: it keeps the
 # Sunday week-ending alignment and lands on the same ISO week number.
 #
-# Everything is derived from the data -- reporting vintage, the weeks shown, the
-# comparison weeks -- so the same command redraws the current picture in any week.
-#
-# Levels are NOT comparable between countries: national case definitions and
-# denominators differ. Hence free y scales and no shared axis.
-#
-# y axes are log10, the scale the MSP is defined on: a log-linear extrapolation plots as
-# the straight line it is, and equal gradients mean equal weekly growth whatever the
-# level. On a linear axis a grey line sitting at twice the current level reads as twice
-# as steep for the same growth, which would defeat the comparison. The cost is that
-# zeros cannot be drawn, so an all-zero series drops out.
+# Everything is derived from the data -- reporting vintage, weeks shown, comparison weeks
+# -- so the same command redraws the current picture in any week.
 #
 # Re-run weekly:      Rscript code/05_figures/fig_msp_grid.R
 # Other indicators:   INDICATOR="ARI incidence" Rscript code/05_figures/fig_msp_grid.R
@@ -40,14 +34,22 @@ source("code/01_support/config.R"); params <- settings()
 dir.create(params$figure_dir, showWarnings = FALSE, recursive = TRUE)
 
 INDICATOR <- Sys.getenv("INDICATOR", "ILI incidence")
-N_SURV    <- 5L                      # reported weeks in column 1
-N_SLOPE   <- 2L                      # weeks in the column 2 zoom
+N_SURV    <- 5L                      # reported weeks in the left column
+N_SLOPE   <- 2L                      # weeks the slope spans
 LAG_YEARS <- c(1L, 2L)               # historical overlays, in whole years
 MIN_OBS   <- 2L                      # minimum NON-ZERO reported points to keep a country
+TODAY     <- Sys.Date()
+# The normalised scale is set from a QUANTILE of the drawn slopes, not their maximum: one
+# freak historical slope (a country coming off a near-zero summer) would otherwise flatten
+# every other arrow to a few percent of the panel. Anything steeper than the scale is
+# truncated at the panel edge with its true gradient intact, so it reads as running off
+# the top rather than being quietly rescaled. MIN_HALF floors the scale so a week in which
+# every slope is flat is not magnified into a field of dramatic-looking noise.
+SCALE_Q   <- 0.90
+MIN_HALF  <- 0.025
 
 # Countries withheld, with the reason. LU's ERVISS series alternates between 0 and 2200
-# within a single month, which is a reporting artefact rather than epidemiology; plotting
-# it would put a meaningless row in a figure meant to be read at a glance.
+# within a single month, which is a reporting artefact rather than epidemiology.
 EXCLUDE <- c(LU = "ERVISS series alternates 0 / 2200 -- reporting artefact")
 
 TRUTH <- c("ILI incidence"             = "/workspace/emh-syndromic/target-data/ERVISS/latest-ILI_incidence.csv",
@@ -63,35 +65,33 @@ NAME <- c(AT="Austria", BE="Belgium", BG="Bulgaria", CY="Cyprus", CZ="Czechia", 
           LT="Lithuania", LU="Luxembourg", LV="Latvia", MT="Malta", NL="Netherlands", NO="Norway",
           PL="Poland", PT="Portugal", RO="Romania", SE="Sweden", SI="Slovenia", SK="Slovakia")
 
-INK <- "#1f1f1c"; MUTED <- "#6f6e69"; RULE <- "#e3e2dc"
+INK  <- "#1f1f1c"; MUTED <- "#6f6e69"; RULE <- "#e6e5df"
+TURQ <- "#00A0A8"
+BAND <- "#f6f5f0"                    # the alternating row tint: barely there up close,
+                                     # a clear stripe from across the room
 LAG_LAB <- sprintf("%d year%s ago", LAG_YEARS, ifelse(LAG_YEARS == 1, "", "s"))
-# One grey per lag, older = lighter. The SAME grey means the same lag in both columns;
-# the column header says whether it is a reported or a modelled quantity.
 LAG_COL <- setNames(c("#8f8f89", "#c4c3bd", "#dcdbd5")[seq_along(LAG_YEARS)], LAG_LAB)
-SER <- c("This year, reported"        = INK,
-         "This year, modelled (MSP)"  = "#00A0A8",
-         LAG_COL)
-
-COL1 <- sprintf("Reported surveillance   last %d weeks", N_SURV)
-COL2 <- sprintf("Modelled slope   last %d weeks", N_SLOPE)
+SER <- c("This year, reported" = INK, "This year, modelled (MSP)" = TURQ, LAG_COL)
 
 # ---- |-1. data, with the vintage read off the files ----
 step(sprintf("Building the %s figure", INDICATOR))
 
 truth <- read_csv(TRUTH[[INDICATOR]], show_col_types = FALSE) %>%
-  filter(!is.na(value), value > 0) %>%                 # zeros cannot go on a log axis
+  filter(!is.na(value), value > 0) %>%               # zeros cannot go on a log axis
   mutate(week_end = as.Date(truth_date))
 
 msp <- read_csv(file.path(params$output_dir, "msp_weekly.csv"), show_col_types = FALSE) %>%
   filter(indicator == INDICATOR, eu_eea, msp > 0) %>%
   mutate(week_end = as.Date(week_end))
 
-LAST_OBS <- max(truth$week_end)                        # newest reported week, from the data
+LAST_OBS <- max(truth$week_end)
+wk_floor <- function(d) lubridate::floor_date(d, "week", week_start = 1)
+WK_BEHIND <- as.integer(as.numeric(wk_floor(TODAY) - wk_floor(LAST_OBS)) / 7)
 SURV_WKS <- seq(LAST_OBS - 7 * (N_SURV  - 1), LAST_OBS, by = 7)
 SLOPE_WK <- seq(LAST_OBS - 7 * (N_SLOPE - 1), LAST_OBS, by = 7)
-say(sprintf("newest reported week %s (W%02d); surveillance %s -> %s, slope %s -> %s",
-            format(LAST_OBS), lubridate::isoweek(LAST_OBS),
-            format(min(SURV_WKS)), format(LAST_OBS), format(min(SLOPE_WK)), format(LAST_OBS)))
+say(sprintf("newest reported week %s (W%02d); surveillance %s -> %s, slope %s -> %s, today %s (W%02d)",
+            format(LAST_OBS), lubridate::isoweek(LAST_OBS), format(min(SURV_WKS)), format(LAST_OBS),
+            format(min(SLOPE_WK)), format(LAST_OBS), format(TODAY), lubridate::isoweek(TODAY)))
 
 # ---- |-2. who qualifies ----
 obs_now <- truth %>% filter(week_end %in% SURV_WKS, location %in% unique(msp$location))
@@ -102,117 +102,190 @@ eligible <- full_join(count(obs_now, location, name = "n_obs"),
   mutate(across(c(n_obs, n_msp), ~ replace_na(.x, 0L)),
          excluded = location %in% names(EXCLUDE),
          keep     = n_msp == N_SLOPE & n_obs >= MIN_OBS & !excluded)
-
 KEEP <- eligible$location[eligible$keep]
-say(sprintf("%d EU/EEA countries kept; %d dropped (no MSP pair or < %d positive reported points), %d withheld",
-            length(KEEP), sum(!eligible$keep & !eligible$excluded), MIN_OBS, sum(eligible$excluded)))
+say(sprintf("%d EU/EEA countries kept; %d dropped, %d withheld",
+            length(KEEP), sum(!eligible$keep & !eligible$excluded), sum(eligible$excluded)))
 
-# ---- |-3. the historical overlays, shifted onto the current x positions ----
-# 364 days = 52 whole weeks, so Sunday alignment and the ISO week number both hold.
+# ---- |-3. historical overlays, shifted onto the current x positions ----
 lag_of <- function(tbl, val, weeks, k)
   tbl %>% filter(week_end %in% (weeks - 364L * k), location %in% KEEP) %>%
     transmute(location, week_end = week_end + 364L * k, value = {{ val }},
               series = sprintf("%d year%s ago", k, ifelse(k == 1, "", "s")))
 
-surv_lag <- map_dfr(LAG_YEARS, ~ lag_of(truth, value, SURV_WKS,  .x) %>% mutate(panel = COL1))
-msp_lag  <- map_dfr(LAG_YEARS, ~ lag_of(msp,   msp,   SLOPE_WK,  .x) %>% mutate(panel = COL2))
-
-for (i in seq_along(LAG_YEARS)) {
-  k <- LAG_YEARS[i]
-  say(sprintf("%-12s reported %s -> %2d countries | modelled %s -> %2d countries", LAG_LAB[i],
-              format(min(SURV_WKS) - 364L * k), n_distinct(surv_lag$location[surv_lag$series == LAG_LAB[i]]),
-              format(min(SLOPE_WK) - 364L * k), n_distinct(msp_lag$location[msp_lag$series == LAG_LAB[i]])))
-}
-
-plot_df <- bind_rows(
-  obs_now %>% filter(location %in% KEEP) %>%
-    transmute(location, week_end, value, series = "This year, reported",       panel = COL1),
-  msp_now %>% filter(location %in% KEEP) %>%
-    transmute(location, week_end, value = msp, series = "This year, modelled (MSP)", panel = COL2),
-  surv_lag, msp_lag) %>%
-  mutate(series = factor(series, levels = names(SER)),
-         panel  = factor(panel,  levels = c(COL1, COL2)))
+surv_lag <- map_dfr(LAG_YEARS, ~ lag_of(truth, value, SURV_WKS, .x))
+msp_lag  <- map_dfr(LAG_YEARS, ~ lag_of(msp,   msp,   SLOPE_WK, .x))
+for (i in seq_along(LAG_YEARS))
+  say(sprintf("%-12s reported %2d countries | modelled %2d countries", LAG_LAB[i],
+              n_distinct(surv_lag$location[surv_lag$series == LAG_LAB[i]]),
+              n_distinct(msp_lag$location[msp_lag$series  == LAG_LAB[i]])))
 
 # ---- |-4. row order: the modelled weekly change, steepest rise first ----
-growth <- msp_now %>% filter(location %in% KEEP) %>%
-  arrange(location, week_end) %>%
+growth <- msp_now %>% filter(location %in% KEEP) %>% arrange(location, week_end) %>%
   group_by(location) %>%
   summarise(prev = first(msp), last = last(msp), chg = last / prev - 1, .groups = "drop") %>%
-  arrange(desc(chg)) %>%
-  mutate(strip = sprintf("%s  %+.0f%%", NAME[location], 100 * chg))
+  arrange(desc(chg))
+ORDER <- setNames(NAME[growth$location], growth$location)
+as_row <- function(d) mutate(d, row = factor(NAME[location], levels = unname(ORDER)))
 
-plot_df <- plot_df %>%
-  left_join(select(growth, location, strip), by = "location") %>%
-  mutate(strip = factor(strip, levels = growth$strip))
+# ---- |-5. the normalised slopes ----
+# Re-centre each slope on the geometric mean of its two points: subtracting the mean of
+# the logs removes the level and leaves the gradient untouched, so every slope crosses
+# zero half-way between the two weeks.
+slopes <- bind_rows(msp_now %>% filter(location %in% KEEP) %>%
+                      transmute(location, week_end, value = msp, series = "This year, modelled (MSP)"),
+                    msp_lag) %>%
+  group_by(location, series) %>%
+  filter(n() == N_SLOPE) %>%
+  arrange(week_end, .by_group = TRUE) %>%
+  summarise(x = first(week_end), xend = last(week_end),
+            d = log10(last(value)) - log10(first(value)), .groups = "drop") %>%
+  mutate(y = -d / 2, yend = d / 2) %>%                       # midpoint pinned to zero
+  as_row()
 
-# ---- |-5. draw ----
-drawn <- levels(droplevels(plot_df$series))
-is_pt  <- function(d) filter(d, series == "This year, reported")
-is_ln  <- function(d) filter(d, series != "This year, reported")
+HALF <- max(unname(quantile(abs(slopes$d) / 2, SCALE_Q)) * 1.15, MIN_HALF)
 
-p <- ggplot(plot_df, aes(week_end, value, colour = series)) +
-  # historical greys underneath, this year's series on top
-  geom_line(data = ~ filter(.x, grepl("ago", series)), linewidth = 0.55, na.rm = TRUE) +
-  geom_line(data = ~ filter(.x, series == "This year, modelled (MSP)"), linewidth = 1, na.rm = TRUE) +
-  geom_line(data = is_pt, linewidth = 0.5, na.rm = TRUE) +
-  geom_point(data = is_pt, size = 1.35, na.rm = TRUE) +
-  facet_grid(strip ~ panel, scales = "free", switch = "y") +
-  scale_colour_manual(values = SER, breaks = drawn, name = NULL, drop = TRUE) +
+# Truncate rather than squash: solve for where the segment crosses +-HALF and cut it
+# there. The gradient is untouched, so a clipped arrow is still read correctly -- it
+# simply stops at the frame.
+slopes <- slopes %>%
+  mutate(t_lo = pmin(pmax((-HALF + d / 2) / d, 0), 1),
+         t_hi = pmin(pmax(( HALF + d / 2) / d, 0), 1),
+         t_lo = ifelse(is.finite(t_lo), t_lo, 0), t_hi = ifelse(is.finite(t_hi), t_hi, 1),
+         span = as.numeric(xend - x),
+         x2    = x + span * pmin(t_lo, t_hi), xend2 = x + span * pmax(t_lo, t_hi),
+         y2    = -d / 2 + d * pmin(t_lo, t_hi), yend2 = -d / 2 + d * pmax(t_lo, t_hi),
+         clipped = abs(d) / 2 > HALF)
+say(sprintf("normalised scale: +-%.3f log10 (full height %+.0f%%/wk); steepest drawn %+.0f%%; %d of %d slopes truncated",
+            HALF, 100 * (10 ^ (2 * HALF) - 1),
+            100 * (10 ^ slopes$d[which.max(abs(slopes$d))] - 1), sum(slopes$clipped), nrow(slopes)))
+
+# the right column runs from the slope out to today, so the gap reads as the reporting lag
+X2 <- c(min(SLOPE_WK) - 1.5, TODAY + 2)
+lab_now <- growth %>% transmute(location, chg) %>% as_row() %>%
+  mutate(x = max(SLOPE_WK) + 1.6,
+         y = pmin(pmax(slopes$yend2[match(paste(location, "This year, modelled (MSP)"),
+                                          paste(slopes$location, "This year, modelled (MSP)"))],
+                       -HALF * 0.70), HALF * 0.70),
+         label = sprintf("%+.0f%%", 100 * chg))
+
+# ---- |-6. shared furniture ----
+rows  <- tibble(row = factor(unname(ORDER), levels = unname(ORDER))) %>%
+  mutate(shade = seq_len(n()) %% 2 == 1)
+band  <- filter(rows, shade)
+stripe <- function(floor = -Inf) geom_rect(data = band, inherit.aes = FALSE,
+                                           aes(xmin = -Inf, xmax = Inf, ymin = floor, ymax = Inf),
+                                           fill = BAND)
+
+base_theme <- theme_minimal(base_size = 10) +
+  theme(panel.grid.minor  = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.spacing.y   = unit(3, "pt"),          # just enough that adjacent y labels do not collide
+        axis.text.x       = element_text(colour = MUTED, size = 7.8),
+        axis.ticks        = element_blank(),
+        legend.position   = "none",
+        plot.title         = element_text(colour = MUTED, size = 9.2, hjust = 0,
+                                          margin = margin(b = 7)),
+        plot.title.position = "plot")
+
+# ---- |-7. LEFT: reported surveillance, real levels ----
+surv <- bind_rows(obs_now %>% filter(location %in% KEEP) %>%
+                    transmute(location, week_end, value, series = "This year, reported"),
+                  surv_lag) %>%
+  mutate(series = factor(series, levels = names(SER))) %>% as_row()
+
+p1 <- ggplot(surv, aes(week_end, value, colour = series)) +
+  stripe(0) +                       # 0 -> -Inf once log-transformed; -Inf would be NaN
+  geom_line(data = ~ filter(.x, series != "This year, reported"), linewidth = 0.55, na.rm = TRUE) +
+  geom_line(data  = ~ filter(.x, series == "This year, reported"), linewidth = 0.55, na.rm = TRUE) +
+  geom_point(data = ~ filter(.x, series == "This year, reported"), size = 1.4, na.rm = TRUE) +
+  facet_wrap(~ row, ncol = 1, scales = "free_y", strip.position = "left") +
+  scale_colour_manual(values = SER, drop = FALSE) +
   scale_x_date(breaks = SURV_WKS, labels = ~ sprintf("W%02d", lubridate::isoweek(.x)),
-               expand = expansion(mult = 0.07)) +
+               expand = expansion(mult = 0.05)) +
   scale_y_log10(labels = label_number(big.mark = " ", drop0trailing = TRUE, accuracy = 0.01),
-                breaks = scales::breaks_extended(4),
-                expand = expansion(mult = c(0.14, 0.18))) +
-  guides(colour = guide_legend(override.aes = list(linewidth = 1.1, size = 1.6), nrow = 1)) +
-  labs(x = NULL, y = NULL) +
-  theme_minimal(base_size = 9.5) +
-  theme(panel.grid.minor    = element_blank(),
-        panel.grid.major.x  = element_blank(),
-        panel.grid.major.y  = element_line(linewidth = 0.22, colour = RULE),
-        panel.spacing.x     = unit(16, "pt"),
-        panel.spacing.y     = unit(5,  "pt"),
-        strip.placement     = "outside",
-        strip.text.y.left   = element_text(colour = INK, size = 9, angle = 0, hjust = 0,
-                                           margin = margin(r = 6)),
-        strip.text.x        = element_text(colour = MUTED, size = 9, margin = margin(b = 5)),
-        axis.text.x         = element_text(colour = MUTED, size = 7.4),
-        axis.text.y         = element_text(colour = MUTED, size = 7),
-        legend.position     = "top",
-        legend.text         = element_text(colour = INK, size = 8.8),
-        legend.key.width    = unit(22, "pt"),
-        legend.margin       = margin(0, 0, 4, 0),
-        plot.margin         = margin(4, 10, 4, 4))
+                breaks = scales::breaks_extended(3), expand = expansion(mult = 0.22)) +
+  labs(x = NULL, y = NULL, title = sprintf("REPORTED   last %d weeks, own scale", N_SURV)) +
+  base_theme +
+  theme(panel.grid.major.y = element_line(linewidth = 0.2, colour = RULE),
+        strip.placement    = "outside",
+        strip.text.y.left  = element_text(colour = INK, size = 9.6, angle = 0, hjust = 1,
+                                          margin = margin(r = 9)),
+        axis.text.y        = element_text(colour = MUTED, size = 6.9),
+        plot.margin        = margin(2, 4, 2, 2))
 
-# An absent comparison year is stated, not silently omitted.
-gap  <- setdiff(LAG_LAB, unique(msp_lag$series))
-gap_txt <- if (length(gap))
-  paste0("\nNo modelled slope exists for ", paste(gap, collapse = " or "),
-         ": the hubs did not run in those weeks. The reported column still shows them.") else ""
+# ---- |-8. RIGHT: the slope alone, normalised, one scale for everyone ----
+p2 <- ggplot(slopes) +
+  stripe() +
+  geom_hline(yintercept = 0, linetype = "dotted", linewidth = 0.4, colour = "#b8b7b1") +
+  geom_vline(xintercept = as.numeric(TODAY), linewidth = 0.4, colour = MUTED) +
+  geom_segment(aes(x = x2, xend = xend2, y = y2, yend = yend2, colour = series),
+               linewidth = 0.75, lineend = "butt",
+               arrow = arrow(length = unit(3.6, "pt"), type = "closed", angle = 22)) +
+  geom_text(data = lab_now, aes(x = x, y = y, label = label),
+            hjust = 0, vjust = 0.5, size = 2.9, colour = TURQ) +
+  facet_wrap(~ row, ncol = 1) +
+  scale_colour_manual(values = SER, drop = FALSE) +
+  scale_x_date(breaks = SLOPE_WK, labels = ~ sprintf("W%02d", lubridate::isoweek(.x)),
+               limits = X2, expand = c(0, 0)) +
+  scale_y_continuous(limits = c(-HALF, HALF), expand = c(0, 0)) +
+  labs(x = NULL, y = NULL,
+       title = "MODELLED SLOPE   level removed, shared scale") +
+  base_theme +
+  theme(panel.grid.major.y = element_blank(),
+        axis.text.y        = element_blank(),
+        strip.text         = element_blank(),
+        plot.margin        = margin(2, 2, 2, 8))
 
-fig <- p + plot_annotation(
-  title    = sprintf("%s across EU/EEA: what was reported, and the slope the ensemble reads into it", INDICATOR),
-  subtitle = sprintf("%d countries, ordered by the modelled weekly change. Newest reported week W%02d of %d (ending %s); today is W%02d.\n%s.",
-                     length(KEEP), lubridate::isoweek(LAST_OBS), lubridate::isoyear(LAST_OBS),
-                     format(LAST_OBS, "%d %b"), lubridate::isoweek(Sys.Date()),
-                     UNITS[[INDICATOR]]),
-  caption  = paste0(
-    "MSP (Modelled Smooth Point) = the ensemble's 1- and 2-week-ahead medians extrapolated back one week on a log scale (f1^2 / f2). ",
-    "Grey lines are the same\ncalendar weeks 52 and 104 weeks earlier, at their own levels, drawn at the current x positions.",
-    gap_txt,
-    "\nThe two columns share a y scale within a row but NOT an x scale: the right column is a two-week zoom, so a given gradient is drawn",
-    "\nsteeper there. Compare slopes within a panel, not across columns.",
-    "\ny axes are log10 and free. Equal gradients mean equal weekly growth whatever the level, but levels are NOT comparable between",
-    "\ncountries: national case definitions and denominators differ. Zeros cannot be shown on a log axis.",
-    if (length(EXCLUDE)) paste0("\nWithheld: ", paste(sprintf("%s -- %s", NAME[names(EXCLUDE)], EXCLUDE), collapse = "; "), ".") else "",
-    "\nSource: RespiCast + ERVISS, retrieved ", format(Sys.Date(), "%d %b %Y"), "."),
-  theme = theme(plot.title    = element_text(colour = INK, size = 12.5, face = "plain"),
-                plot.subtitle = element_text(colour = MUTED, size = 8.8, margin = margin(b = 6)),
-                plot.caption  = element_text(colour = MUTED, size = 7.1, hjust = 0, lineheight = 1.3),
-                plot.caption.position = "plot", plot.title.position = "plot"))
+# the "today" rule is labelled once, above the top row, not twelve times
+p2 <- p2 +
+  geom_text(data = tibble(row = factor(unname(ORDER)[1], levels = unname(ORDER))),
+            aes(x = TODAY - 1.2, y = 0), inherit.aes = FALSE,
+            label = sprintf("today, W%02d", lubridate::isoweek(TODAY)),
+            angle = 90, hjust = 0.5, vjust = 0, size = 2.85, colour = MUTED)
+
+# ---- |-9. one drawn key, so the two columns share a legend without ggplot's ----
+key_items <- c("This year, reported", "This year, modelled (MSP)",
+               intersect(LAG_LAB, unique(c(surv_lag$series, msp_lag$series))))
+kx <- head(cumsum(c(0.015, 0.085 + 0.0072 * nchar(key_items) + 0.028)), length(key_items))
+key <- ggplot() +
+  map2(kx, key_items, ~ annotate("segment", x = .x, xend = .x + 0.038, y = 0.5, yend = 0.5,
+                                 colour = SER[[.y]], linewidth = if (grepl("modelled", .y)) 0.9 else 0.6)) +
+  map2(kx[1], key_items[1], ~ annotate("point", x = c(.x, .x + 0.019, .x + 0.038), y = 0.5,
+                                       colour = SER[[.y]], size = 1.4)) +
+  map2(kx, key_items, ~ annotate("text", x = .x + 0.047, y = 0.5, hjust = 0, size = 3,
+                                 colour = INK, label = .y)) +
+  scale_x_continuous(limits = c(0, 1)) + scale_y_continuous(limits = c(0, 1)) + theme_void()
+
+gap <- setdiff(LAG_LAB, unique(msp_lag$series))
+fig <- key / (p1 | p2) +
+  plot_layout(heights = c(0.055, 1), widths = c(1, 1)) +
+  plot_annotation(
+    title    = sprintf("%s across EU/EEA: what was reported, and the slope the ensemble reads into it", INDICATOR),
+    subtitle = sprintf("%d countries, steepest modelled rise first. Newest reported week W%02d of %d (ending %s); today is W%02d, so the model is reading %s behind.\n%s.",
+                       length(KEEP), lubridate::isoweek(LAST_OBS), lubridate::isoyear(LAST_OBS),
+                       format(LAST_OBS, "%d %b"), lubridate::isoweek(TODAY),
+                       sprintf("%d week%s", WK_BEHIND, ifelse(WK_BEHIND == 1, "", "s")), UNITS[[INDICATOR]]),
+    caption  = paste0(
+      "MSP (Modelled Smooth Point) = the ensemble's 1- and 2-week-ahead medians extrapolated back one week on a log scale (f1^2 / f2).",
+      "\nLeft: real levels, own y scale per country, log10. Grey lines are the same calendar weeks 52 and 104 weeks earlier.",
+      "\nRight: each slope re-centred on the mean of its two logs, so the level is gone and only the gradient remains; every slope crosses the dotted",
+      "\nzero line mid-way. One shared scale, so steepness compares across countries. Arrowheads mark the week the slope lands on; the rule marks today.",
+      sprintf("\nThe right panel spans %+.0f%% per week top to bottom. Its scale is set from the 90th percentile of the drawn slopes; a steeper one is cut at",
+              100 * (10 ^ (2 * HALF) - 1)),
+      "\nthe frame with its gradient intact, not rescaled.",
+      if (length(gap)) paste0("\nNo modelled slope exists for ", paste(gap, collapse = " or "),
+                              ": the hubs did not run in those weeks. The reported column still shows them.") else "",
+      "\nLevels are NOT comparable between countries: national case definitions and denominators differ. Zeros cannot be shown on a log axis.",
+      if (length(EXCLUDE)) paste0("\nWithheld: ", paste(sprintf("%s -- %s", NAME[names(EXCLUDE)], EXCLUDE), collapse = "; "), ".") else "",
+      "\nSource: RespiCast + ERVISS, retrieved ", format(TODAY, "%d %b %Y"), "."),
+    theme = theme(plot.title    = element_text(colour = INK, size = 13, face = "plain"),
+                  plot.subtitle = element_text(colour = MUTED, size = 8.8, margin = margin(b = 8), lineheight = 1.25),
+                  plot.caption  = element_text(colour = MUTED, size = 7.1, hjust = 0, lineheight = 1.35),
+                  plot.caption.position = "plot", plot.title.position = "plot"))
 
 SLUG <- gsub("[^a-z0-9]+", "_", tolower(INDICATOR))
 ggsave(file.path(params$figure_dir, sprintf("msp_grid_%s.png", SLUG)), fig,
-       width = 9.4, height = 3.3 + 0.80 * length(KEEP), dpi = 500, bg = "white", limitsize = FALSE)
+       width = 9.6, height = 3.6 + 1.12 * length(KEEP), dpi = 500, bg = "white", limitsize = FALSE)
 cat(sprintf("figure -> output/figures/msp_grid_%s.png\n", SLUG))
 
 step("Countries dropped")
@@ -224,6 +297,6 @@ eligible %>% filter(!keep) %>%
   arrange(location) %>% as.data.frame() %>% print(row.names = FALSE)
 
 step("Modelled weekly change, steepest first")
-growth %>% transmute(location, prev = round(prev, 2), last = round(last, 2),
+growth %>% transmute(country = NAME[location], prev = round(prev, 2), last = round(last, 2),
                      change = sprintf("%+.1f%%", 100 * chg)) %>%
   as.data.frame() %>% print(row.names = FALSE)

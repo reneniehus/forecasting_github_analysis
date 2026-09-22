@@ -420,38 +420,47 @@ figure `output/figures/msp_ili_examples.png` (`code/05_figures/fig_msp_ili.R`).
 ### Weekly MSP figures
 
 `./refresh-msp.sh` pulls the two live hubs, recomputes `output/msp_weekly.csv` and redraws
-every figure. Nothing in the figure scripts is dated: the reporting vintage, the weeks shown
-and the comparison weeks are all read off the data, so the same command gives the current
-picture in any week. `--no-pull` skips the fetch.
+every figure. Nothing in the figure scripts is dated -- reporting vintage, weeks shown and
+comparison weeks are all read off the data -- so the same command gives the current picture
+in any week. `--no-pull` skips the fetch. `INDICATOR="ARI incidence"` or
+`INDICATOR="COVID-19 hospitalisations"` re-points `fig_msp_grid.R`.
 
-`code/05_figures/fig_msp_grid.R` gives one ROW per country, stacked in order of the modelled
-weekly change (steepest rise at the top), with two columns:
+One ROW per country, ordered by the modelled weekly change, steepest rise first:
 
-| Column | Shows | Series |
+| Column | Shows | y scale |
 |---|---|---|
-| 1 | Reported only, no modelling, last 5 weeks | black dots+lines this year; grey lines 52 and 104 weeks earlier |
-| 2 | The slope, zoomed to the last 2 weeks | turquoise MSP this year; grey MSP 52 and 104 weeks earlier |
+| Left | Reported only, last 5 weeks, plus the same weeks 52 and 104 weeks earlier | real levels, log10, free per country |
+| Right | The MSP slope alone, last 2 weeks, arrowheads, rule at today | normalised, shared by every country |
 
-`INDICATOR="ARI incidence"` or `INDICATOR="COVID-19 hospitalisations"` re-points it.
+Design decisions worth recording:
 
-Four decisions worth recording:
-
+* **The right column is normalised and the left is not.** Each slope is re-centred on the
+  mean of its two logs, which removes the level and leaves the gradient untouched, so every
+  slope crosses the dotted zero line mid-way. That buys ONE shared scale: steepness now
+  compares across countries, not only within a row. It has no level, hence no y axis -- the
+  magnitude is printed beside each arrow instead.
+* **The slope scale is a quantile, not a maximum, and off-scale slopes are truncated.** One
+  freak historical slope (a country coming off a near-zero summer -- Lithuania's year-ago
+  arrow is +124%/week) would otherwise flatten every other arrow to a few percent of the
+  panel. The scale is set from the 90th percentile of the drawn slopes; anything steeper is
+  cut at the frame with its true gradient intact, so it reads as running off the top rather
+  than being quietly rescaled. The caption states the span and the rule.
+* **The rule at today, two weeks right of the arrowheads, IS the reporting lag.** It is what
+  makes the figure honest about when the slope was estimated.
 * **y axes are log10.** The MSP is *defined* by log-linear extrapolation, so on a log axis it
-  plots as the straight line it is, and equal gradients mean equal weekly growth whatever the
-  level. On a linear axis a grey line sitting at twice the current level reads as twice as
-  steep for the same growth -- which would defeat the comparison the grey lines exist for. The
-  cost is that zeros cannot be drawn, so all-zero series (Slovenia's ILI this week) drop out.
-* **The two columns share a y scale within a row but not an x scale.** `facet_grid(scales =
-  "free")` frees y by row and x by column, so a level can be carried straight across. Column 2
-  is a two-week zoom, so a given gradient is drawn steeper there than in column 1 -- slopes are
-  comparable within a panel, not across columns. The caption says so.
-* **The 2-years-ago comparison is asymmetric in autumn.** Surveillance reaches back to mid-2022,
-  so column 1 draws it; but both hubs reopened on 2024-10-23 after the summer-2024
-  reorganisation, so no MSP exists for Sept 2024 and column 2 cannot. The caption states the
-  absence rather than silently dropping the series, and it resolves itself from about November.
-* **Luxembourg is withheld from ILI.** Its ERVISS series alternates between 0 and 2200 inside a
-  single month -- a reporting artefact, not epidemiology. The exclusion list carries its reason
-  and every run prints which countries were dropped and why.
+  plots as the straight line it is and equal gradients mean equal weekly growth whatever the
+  level. Zeros cannot be drawn, so all-zero series drop out.
+* **Alternating row tint** (`#f6f5f0`) spans both columns: invisible up close, a clear stripe
+  from across the room. A `-Inf` rect floor is silently dropped under a log transform
+  (`log10(-Inf)` is `NaN`), so the left column uses `0` as its floor -- the bug that had the
+  stripes appearing on the linear column only.
+* **The 2-years-ago comparison is asymmetric in autumn.** Surveillance reaches back to
+  mid-2022 so the left column draws it, but both hubs reopened on 2024-10-23, so no MSP
+  exists for Sept 2024 and the right column cannot. Stated in the caption; resolves itself
+  from about November.
+* **Luxembourg is withheld from ILI** -- its ERVISS series alternates between 0 and 2200
+  inside a single month. Every run prints which countries were dropped and why.
 
-Current vintage (retrieved 21 Sep 2026; newest reported week W37, ending 13 Sep): ILI 12
-countries, ARI 12, COVID-19 hospitalisations 5.
+Current vintage (retrieved 22 Sep 2026; newest reported week W37, ending 13 Sep, two weeks
+behind today): ILI 12 countries (scale +-33%/wk, 2 of 23 slopes truncated), ARI 12 (+-73%/wk),
+COVID-19 hospitalisations 5 (+-57%/wk).
