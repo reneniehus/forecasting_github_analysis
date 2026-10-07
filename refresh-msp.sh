@@ -42,10 +42,14 @@ if [ "$PULL" = 1 ]; then
 fi
 
 echo
+# A round is open until its Wednesday has passed, and the hubs publish provisional
+# ensembles under its date meanwhile; compute_msp.R ignores those, and so says this log.
 echo "== latest round on disk"
+TODAY_ISO="$(date -u +%F)"
 for d in "$SYNDROMIC_DIR" "$COVID_DIR"; do
-  printf '   %-14s %s\n' "$(basename "$d")" \
-    "$(ls "$d/model-output/respicast-hubEnsemble" | tail -1 | cut -c1-10)"
+  r="$(ls "$d/model-output/respicast-hubEnsemble" | tail -1 | cut -c1-10)"
+  note=""; [[ ! "$r" < "$TODAY_ISO" ]] && note="  (still open: provisional ensemble, not used)"
+  printf '   %-14s %s%s\n' "$(basename "$d")" "$r" "$note"
 done
 
 echo

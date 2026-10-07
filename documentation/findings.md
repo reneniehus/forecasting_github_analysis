@@ -398,32 +398,59 @@ but its target end dates do not.
 exists. There the latest round's 1-week-ahead median is used directly (`source = "h1_nowcast"`),
 only for indicators still being forecast — a series that stopped in 2024 gets no synthetic tail.
 
-**Coverage** (`output/msp_weekly.csv`, 5,628 rows):
+**The ensemble median is the ensemble's 0.5 quantile, not its `median` row.** The hubverse
+`median` output type is optional; several members (ISI-LightGBM, DHauser-FluChronos) publish
+quantiles only. The hub builds its ensemble `median` row from just the members that supplied one,
+but its quantiles from all of them, so the two disagree. Across all 25,998 RespiCast-era ensemble
+predictions carrying both, they differ by **>1% in 59.5%** and by **>10% in 24.1%**, and in
+**13.2% the `median` row lies outside the ensemble's own 25–75% range**. It has been so since each
+hub's first round. Example — Belgium ARI, round 2026-09-30: `median` row 620 / 944 at h1 / h2,
+0.5 quantile 739 / 908; the `median` row there is IceLab-EDM's value, the middle of the three
+members that published one. The 0.5 quantile combines every member and is coherent with the 50%
+interval, so it is used throughout; the `median` row only where a round has no 0.5 quantile.
+`compute_msp.R` prints the mismatch rate on every run.
+
+Consequences, all corrected in the current outputs: (i) MSP **coverage rose** by ~4%, because some
+locations had a 0.5 quantile but no `median` row at all and were silently missing; (ii) individual
+slopes moved — Belgium's ILI slope for W38→W39 is **+2.6%, not −6.5%**; (iii) a provisional finding
+that the ensemble's slope often fell outside its members' middle 50% (9 of 13 countries for ARI)
+was this artefact and is withdrawn. Earlier vintages of `msp_weekly.csv`, and the ad-hoc forecast
+tables of 4 Sep 2026 (which read `median` rows), predate this correction.
+
+**Only final rounds.** While a round is open (Sun–Wed) the hubs rebuild a provisional ensemble
+under its origin date from whatever has been submitted; on 7 Oct 2026 the open round held 10 of
+the 13 models that made the previous one. Only rounds with `origin_date < AS_OF` (default today)
+are used, and both `compute_msp.R` and `refresh-msp.sh` say when an open round was skipped.
+
+**Coverage** (`output/msp_weekly.csv`, 5,947 rows, vintage 7 Oct 2026):
 
 | Indicator | Weeks | Countries | EU/EEA | First | Last |
 |---|---:|---:|---:|---|---|
-| ILI incidence | 118 | 30 | 25 | 2023-12-10 | 2026-09-13 |
-| ARI incidence | 118 | 25 | 21 | 2023-12-10 | 2026-09-13 |
-| COVID-19 hospitalisations | 122 | 16 | 16 | 2023-09-30 | 2026-09-13 |
+| ILI incidence | 120 | 30 | 25 | 2023-12-10 | 2026-09-27 |
+| ARI incidence | 120 | 25 | 21 | 2023-12-10 | 2026-09-27 |
+| COVID-19 hospitalisations | 124 | 16 | 16 | 2023-09-30 | 2026-09-27 |
 
 COVID reaches back to end-2023 via the European COVID-19 Forecast Hub archive (28 in-scope rounds,
 `EuroCOVIDhub-ensemble`, quantile 0.5); ILI/ARI start with the 2023/24 hubs' first rounds.
 
-**Stability.** `f1/f2` has median 1.00 and a 1st-99th percentile range of 0.47-1.50, so the
-back-extrapolation is mild in the overwhelming majority of weeks. 76 rows (1.4%) sit beyond a
+**Stability.** `f1/f2` has median 1.00 and a 1st-99th percentile range of 0.50-1.50, so the
+back-extrapolation is mild in the overwhelming majority of weeks. 66 rows (1.1%) sit beyond a
 two-fold ratio either way; the `ratio` column is carried in the output so those can be filtered.
-50 pairs were dropped where `f1` or `f2` was zero and the log is undefined.
+Pairs where `f1` or `f2` is zero are dropped, the log being undefined.
 
-Evidence: `code/03_hubs/compute_msp.R` -> `output/msp_weekly.csv`;
+The ensemble's forecasts themselves -- 0.5 quantile with the 25% and 75% quantiles, horizons 1-4,
+every final round -- are written to `output/ensemble_forecasts.csv` (23,685 rows).
+
+Evidence: `code/03_hubs/compute_msp.R` -> `output/msp_weekly.csv`, `output/ensemble_forecasts.csv`;
 figure `output/figures/msp_ili_examples.png` (`code/05_figures/fig_msp_ili.R`).
 
-### Weekly MSP figures
+### Weekly MSP figures: the slope monitor
 
-`./refresh-msp.sh` pulls the two live hubs, recomputes `output/msp_weekly.csv` and redraws
-every figure. Nothing in the figure scripts is dated -- reporting vintage, weeks shown and
-comparison weeks are all read off the data -- so the same command gives the current picture
-in any week. `--no-pull` skips the fetch. `INDICATOR="ARI incidence"` or
-`INDICATOR="COVID-19 hospitalisations"` re-points `fig_slope_monitor.R`.
+`./refresh-msp.sh` pulls the two live hubs, recomputes the MSPs and forecasts, and redraws every
+figure. Nothing in the figure scripts is dated -- reporting vintage, weeks shown and comparison
+weeks are all read off the data -- so the same command gives the current picture in any week;
+`AS_OF=YYYY-MM-DD` redraws a past one. `--no-pull` skips the fetch. `INDICATOR="ARI incidence"` or
+`INDICATOR="COVID-19 hospitalisations"` re-points `code/05_figures/fig_slope_monitor.R`.
 
 The figure is titled **"Slope monitor"** and its caption names the script that built it, so a
 printed copy always says where it came from. Output is a true **A4 portrait PDF** (210 x 297 mm
@@ -433,43 +460,70 @@ weekly change, steepest rise first:
 
 | Column | Shows | y scale |
 |---|---|---|
-| Left | Reported only, last 5 weeks, plus the same weeks 52 and 104 weeks earlier | real levels, log10, free per country |
-| Right | The MSP slope alone, last 2 weeks, arrowheads, rule at today | normalised, shared by every country |
+| Left | the last 5 reported weeks (black); the ensemble forecast from the latest final round, median dashed and 50% interval band, 1 and 2 weeks ahead (turquoise); the same ISO weeks in every earlier season back to 2015 (plain lines, one grey) | real levels, log10, free per country |
+| Right | the MSP slope across the last two reported weeks only: this season turquoise, earlier seasons grey, arrowheads, rule at today | normalised, shared by every country |
+
+Because of the reporting lag the forecast's 1-week-ahead lands *on* the newest reported week, so
+it overlaps the black line by a week and extends it by one (vintage 7 Oct: h1 = W39 = newest
+reported week, h2 = W40; today is W41).
 
 Design decisions worth recording:
 
 * **The right column is normalised and the left is not.** Each slope is re-centred on the
   mean of its two logs, which removes the level and leaves the gradient untouched, so every
-  slope crosses the dotted zero line mid-way. That buys ONE shared scale: steepness now
-  compares across countries, not only within a row. It has no level, hence no y axis -- the
-  magnitude is printed beside each arrow instead.
+  slope crosses the dotted zero line mid-way. That buys ONE shared scale: steepness compares
+  across countries, not only within a row. It has no level, hence no y axis -- the magnitude is
+  printed beside each arrow instead.
+* **No forecast or uncertainty in the right column** (by decision). For the record: the arrow
+  already *is* the ensemble's median forecast slope -- MSP = f1²/f2 makes its gradient exactly
+  that of f1 → f2 -- and the ensemble's 50% interval is an interval on the *level*, about ten
+  times wider than the slopes on this scale (median half-width ~0.6 log10 against ~0.05), so it
+  belongs on the left where it means something.
 * **The slope scale is a quantile, not a maximum, and off-scale slopes are truncated.** One
-  freak historical slope (a country coming off a near-zero summer -- Lithuania's year-ago
-  arrow is +124%/week) would otherwise flatten every other arrow to a few percent of the
-  panel. The scale is set from the 90th percentile of the drawn slopes; anything steeper is
-  cut at the frame with its true gradient intact, so it reads as running off the top rather
-  than being quietly rescaled. The caption states the span and the rule.
-* **The rule at today, two weeks right of the arrowheads, IS the reporting lag.** It is what
-  makes the figure honest about when the slope was estimated.
-* **y axes are log10.** The MSP is *defined* by log-linear extrapolation, so on a log axis it
-  plots as the straight line it is and equal gradients mean equal weekly growth whatever the
-  level. Zeros cannot be drawn, so all-zero series drop out.
-* **Alternating row tint** (`#f6f5f0`) spans both columns: invisible up close, a clear stripe
-  from across the room. A `-Inf` rect floor is silently dropped under a log transform
-  (`log10(-Inf)` is `NaN`), so the left column uses `0` as its floor -- the bug that had the
-  stripes appearing on the linear column only.
-* **The 2-years-ago comparison is asymmetric in autumn.** Surveillance reaches back to
-  mid-2022 so the left column draws it, but both hubs reopened on 2024-10-23, so no MSP
-  exists for Sept 2024 and the right column cannot. Stated in the caption; resolves itself
-  from about November.
-* **Luxembourg is withheld from ILI** -- its ERVISS series alternates between 0 and 2200
-  inside a single month. Every run prints which countries were dropped and why.
-* **Fixed: the per-country % label followed the wrong arrow.** It was located by pasting the
-  series name onto every row of the slope table and calling `match()`, which silently resolved
-  to whichever series sorted first -- the grey "1 year ago" tip. Iceland, Greece and Estonia had
-  year-ago slopes of the opposite sign, so their labels sat on the wrong side of the zero line.
-  It now joins on location AND series, with a `stopifnot` that every kept country gets a tip.
+  freak historical slope (a country coming off a near-zero summer) would otherwise flatten every
+  other arrow to a few percent of the panel. The scale is set from the 90th percentile of the
+  drawn slopes; anything steeper is cut at the frame with its true gradient intact.
+* **Earlier seasons are matched on ISO week**, not by a fixed 364-day shift, which would drift a
+  week each time a 53-week year (2015, 2020) intervenes. In the right column they exist only for
+  seasons the hubs covered, which began in late 2023: for these early-autumn weeks that is 2025
+  alone. The caption names the years actually drawn -- an earlier version named COVID 2023, for
+  which only one of the two weeks has an MSP.
+* **The rule at today, two weeks right of the arrowheads, IS the reporting lag.**
+* **y axes are log10.** The MSP is defined by log-linear extrapolation, so on a log axis it plots
+  as the straight line it is. Zeros cannot be drawn, so all-zero series drop out. Axis labels use
+  1-2-3-5 log steps; linear "nice" steps bunched at the top of each panel.
+* **Alternating row tint** (`#f6f5f0`) spans both columns. A `-Inf` rect floor is silently dropped
+  under a log transform (`log10(-Inf)` is `NaN`), so the left column floors at `0`.
+* **Luxembourg is withheld from ILI** -- its ERVISS series alternates between 0 and 2200 inside a
+  single month. Every run prints which countries were dropped and why.
+* **Fixed: the per-country % label once followed the wrong arrow** (matched on a pasted series
+  name, which resolved to the grey year-ago tip); it now joins on location and season, asserted.
 
-Current vintage (retrieved 22 Sep 2026; newest reported week W37, ending 13 Sep, two weeks
-behind today): ILI 12 countries (scale +-33%/wk, 2 of 23 slopes truncated), ARI 12 (+-73%/wk),
-COVID-19 hospitalisations 5 (+-57%/wk).
+Current vintage (retrieved 7 Oct 2026; newest reported week W39, ending 27 Sep, two weeks behind
+today; forecast round 30 Sep): ILI 13 countries (Croatia +29% steepest), ARI 13, COVID-19
+hospitalisations 5.
+
+## Surveillance history before 2022: RespiCompass
+
+ERVISS's public repo starts at 2022-W25 in every file, including its oldest snapshot. The European
+scenario hub **RespiCompass** shipped a longer ERVISS extract with its 2024/25 influenza round:
+ILI and ARI consultation rates 2014-W40 → 2024-W21 (`auxiliary-data/influenza/epidemiological/`)
+and COVID-19 hospital admissions 2019-W49 → 2024-W21 (`target-data/covid-19/`).
+
+* **No back-calculation needed.** RespiCompass's headline influenza target is ILI+ (ILI × influenza
+  positivity), but it ships ILI itself as auxiliary data. ILI = ILI+ / positivity would in any case
+  be ill-conditioned in the inter-season weeks the monitor shows, where both sit near zero.
+* **Autumn coverage is real:** from 2015 on, 12–17 EU/EEA countries report ILI through W33–W39
+  every year, so the current window gets eleven earlier seasons (2015–2025) rather than two.
+* **Splice rule:** ERVISS wherever it exists (the current vintage), RespiCompass strictly before
+  2022-06-26 -- and only for series the overlap shows are on ERVISS's basis (median difference
+  ≤15% over ≥5 overlapping weeks). Spliced series are identical to ERVISS for 84% (ILI), 85% (ARI)
+  and 79% (COVID) of overlapping country-weeks; Denmark's ILI differs by ~10%, a later ERVISS
+  revision. **Not spliced: Malta and Estonia COVID admissions**, whose overlap differs by 43% and
+  40% across ~100 weeks -- a different basis, not a revision, which would have put a false step
+  change at June 2022.
+
+RespiCompass is frozen (last data week 2024-W21), so the extract runs once:
+`code/03_hubs/extract_respicompass_history.R` -> `data/respicompass_history.csv` (committed, ~1 MB),
+`data/respicompass_not_spliced.csv`, `data/respicompass_agreement.csv`. The weekly refresh does not
+need the 2 GB clone.

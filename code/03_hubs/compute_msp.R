@@ -33,11 +33,36 @@
 # used as the MSP directly (source = "h1_nowcast"). Applied ONLY at the live leading
 # edge -- a series that stopped being forecast in 2024 gets no synthetic tail point.
 #
-# Sources: the four RespiCast-era hubs (hubverse layout, output_type == "median") plus
-# the European COVID-19 Forecast Hub archive (legacy layout, quantile 0.5), which is
-# what carries COVID-19 hospitalisations back to end-2023.
+# Sources: the four RespiCast-era hubs (hubverse layout) plus the European COVID-19
+# Forecast Hub archive (legacy layout), which carries COVID-19 hospitalisations back to
+# end-2023.
+#
+# ---- the ensemble median is its 0.5 QUANTILE, not its `median` row ----
+# The hubverse `median` output type is optional, and several members (e.g. ISI-LightGBM,
+# DHauser-FluChronos) publish quantiles only. The hub builds its ensemble `median` row
+# from just the members that supplied one, but its quantiles from all of them -- so the
+# two disagree. Across every RespiCast-era ensemble prediction carrying both, they differ
+# by >1% in 59.5% of cases and by >10% in 24%, and in 13% the `median` row lies outside
+# the ensemble's own 25-75% range (e.g. Belgium ARI, round 2026-09-30: `median` row 620,
+# 0.5 quantile 739 at h1 -- the `median` row there is simply IceLab-EDM's value, the
+# middle of the three members that published one). The 0.5 quantile combines every member
+# and is coherent with the 50% interval, so it is the ensemble median used throughout;
+# the `median` row is a fallback only where a round has no 0.5 quantile.
+#
+# ---- only FINAL rounds ----
+# The hubs rebuild a provisional ensemble several times while a round is open (Sun-Wed,
+# 10:00 and 18:00 UTC), under the round's own origin date, from whatever has been
+# submitted so far. On 7 Oct 2026 the open round's ensemble held 10 of the 13 models that
+# made the previous round. A round is final once its Wednesday has passed, so only rounds
+# with origin_date < AS_OF are used. AS_OF defaults to today; set it to reproduce a past
+# vintage exactly.
+#
+# The ensemble's interquartile range (quantiles 0.25 / 0.75) is carried alongside the
+# median and written per round and horizon to output/ensemble_forecasts.csv, which is
+# where the figures take their 50% intervals from.
 #
 # Run:  Rscript code/03_hubs/compute_msp.R   ->  output/msp_weekly.csv
+#                                                output/ensemble_forecasts.csv
 
 source("code/01_support/setup.R")
 source("code/01_support/config.R"); params <- settings()
@@ -53,6 +78,8 @@ LEGACY  <- Sys.getenv("COVID_ARCHIVE_DIR", "/workspace/emh-covid-archive")
 ENS_MOD <- "respicast-hubEnsemble"
 ENS_LEG <- "EuroCOVIDhub-ensemble"
 START   <- as.Date("2023-10-01")          # RespiCast era; nothing earlier is in scope
+AS_OF   <- as.Date(Sys.getenv("AS_OF", as.character(Sys.Date())))   # rounds before this are final
+QTL     <- c("q25" = 0.25, "median" = 0.5, "q75" = 0.75)
 
 LABEL <- c("hospital admissions" = "COVID-19 hospitalisations",
            "ILI incidence" = "ILI incidence", "ARI incidence" = "ARI incidence")
@@ -64,8 +91,8 @@ if (length(missing)) stop("Clone(s) not found: ", paste(missing, collapse = ", "
                           "\nThe committed output/msp_weekly.csv holds the extracted result.")
 
 # ---- |-1. read both hub layouts into one shape ----
-# indicator | location | origin_date | horizon | target_end_date | value
-step("Reading ensemble medians")
+# indicator | location | origin_date | horizon | target_end_date | qtl | value
+step("Reading ensemble medians and interquartile ranges")
 
 read_modern <- function(dir, hub) {
   fs <- list.files(file.path(dir, "model-output", ENS_MOD), pattern = "\\.csv$", full.names = TRUE)
@@ -73,14 +100,20 @@ read_modern <- function(dir, hub) {
   map_dfr(fs, function(f) {
     x <- tryCatch(data.table::fread(f, showProgress = FALSE), error = function(e) NULL)
     if (is.null(x) || !nrow(x)) return(NULL)
+    q <- suppressWarnings(as.numeric(x$output_type_id))
     as_tibble(x) %>%
-      filter(output_type == "median") %>%
+      mutate(qtl = case_when(output_type == "quantile" & abs(q - 0.50) < 1e-9    ~ "median",
+                             output_type == "median"                             ~ "median_row",
+                             output_type == "quantile" & abs(q - 0.25) < 1e-9    ~ "q25",
+                             output_type == "quantile" & abs(q - 0.75) < 1e-9    ~ "q75")) %>%
+      filter(!is.na(qtl)) %>%
       transmute(hub = hub,
                 indicator       = recode(as.character(target), !!!LABEL, .default = as.character(target)),
                 location        = as.character(location),
                 origin_date     = as.Date(origin_date),
                 horizon         = as.integer(horizon),
                 target_end_date = as.Date(target_end_date),
+                qtl,
                 value           = as.numeric(value))
   })
 }
@@ -94,22 +127,45 @@ read_legacy <- function(dir) {
   map_dfr(fs, function(f) {
     x <- tryCatch(data.table::fread(f, showProgress = FALSE), error = function(e) NULL)
     if (is.null(x) || !nrow(x)) return(NULL)
+    q <- suppressWarnings(as.numeric(x$quantile))
     as_tibble(x) %>%
-      filter(str_detect(target, "wk ahead inc hosp"),
-             type == "quantile", abs(as.numeric(quantile) - 0.5) < 1e-9) %>%
+      mutate(qtl = names(QTL)[match(round(q, 3), QTL)]) %>%
+      filter(str_detect(target, "wk ahead inc hosp"), type == "quantile", !is.na(qtl)) %>%
       transmute(hub = "covid_archive",
                 indicator       = "COVID-19 hospitalisations",
                 location        = as.character(location),
                 origin_date     = as.Date(forecast_date),
                 horizon         = as.integer(str_extract(target, "^\\d+")),
                 target_end_date = as.Date(target_end_date),
+                qtl,
                 value           = as.numeric(value))
   })
 }
 
-raw <- bind_rows(pmap_dfr(list(MODERN$dir, MODERN$hub), read_modern), read_legacy(LEGACY)) %>%
+every <- bind_rows(pmap_dfr(list(MODERN$dir, MODERN$hub), read_modern), read_legacy(LEGACY)) %>%
   filter(origin_date >= START, is.finite(value), !is.na(target_end_date), horizon >= 1)
-say(sprintf("%d ensemble median rows, %s -> %s", nrow(raw), min(raw$origin_date), max(raw$origin_date)))
+
+open_rounds <- every %>% filter(origin_date >= AS_OF) %>% distinct(hub, origin_date)
+if (nrow(open_rounds))
+  say(sprintf("excluded %d provisional ensemble(s) of a round still open on %s: %s",
+              nrow(open_rounds), AS_OF,
+              paste(sprintf("%s %s", open_rounds$hub, open_rounds$origin_date), collapse = ", ")))
+every <- filter(every, origin_date < AS_OF)
+
+# the ensemble median: the 0.5 quantile, with the `median` row only as a fallback
+KEYS   <- c("hub", "indicator", "location", "origin_date", "horizon", "target_end_date")
+med_q  <- filter(every, qtl == "median")
+med_rw <- filter(every, qtl == "median_row")
+cmp <- inner_join(med_q, med_rw, by = KEYS, suffix = c("_q", "_row")) %>%
+  mutate(rel = abs(value_row - value_q) / pmax(abs(value_q), 1e-9))
+say(sprintf("ensemble `median` row vs 0.5 quantile: differ by >1%% in %.1f%%, by >10%% in %.1f%% of %d predictions -- 0.5 quantile used",
+            100 * mean(cmp$rel > 0.01), 100 * mean(cmp$rel > 0.10), nrow(cmp)))
+every <- bind_rows(filter(every, qtl != "median_row"),
+                   anti_join(med_rw, med_q, by = KEYS) %>% mutate(qtl = "median"))
+
+raw <- filter(every, qtl == "median")
+say(sprintf("%d ensemble median rows, %s -> %s (final rounds only)",
+            nrow(raw), min(raw$origin_date), max(raw$origin_date)))
 
 # ---- |-2. recover each round's anchor and drop rows inconsistent with it ----
 step("Recovering round anchors")
@@ -126,6 +182,7 @@ dropped <- sum(anchored$anchor != anchored$anchor_star)
 say(sprintf("%d of %d rows dropped as inconsistent with their round's anchor (%.2f%%)",
             dropped, nrow(anchored), 100 * dropped / nrow(anchored)))
 anchored <- filter(anchored, anchor == anchor_star)
+anchors  <- distinct(anchored, hub, indicator, location, origin_date, anchor_star)
 
 # ---- |-3. the MSP itself ----
 step("Computing MSPs")
@@ -166,6 +223,22 @@ msp <- bind_rows(msp_extrap, msp_edge) %>%
             iso_week  = sprintf("%d-W%02d", lubridate::isoyear(week), lubridate::isoweek(week)),
             msp, f1, f2, ratio, source, hub, origin_date) %>%
   arrange(indicator, location, week_end)
+
+# ---- |-3b. the ensemble's own forecasts, median with the 50% interval ----
+# Same anchor filter as the MSP, so the quantile rows of a stale duplicate ladder are
+# dropped exactly as its medians were.
+fc <- every %>%
+  inner_join(anchors, by = c("hub", "indicator", "location", "origin_date")) %>%
+  filter(target_end_date - 7L * horizon == anchor_star, horizon %in% 1:4) %>%
+  select(hub, indicator, location, origin_date, horizon, target_end_date, qtl, value) %>%
+  distinct(hub, indicator, location, origin_date, horizon, qtl, .keep_all = TRUE) %>%
+  pivot_wider(names_from = qtl, values_from = value) %>%
+  mutate(eu_eea = location %in% EU_EEA) %>%
+  select(indicator, location, eu_eea, origin_date, horizon, target_end_date, q25, median, q75, hub) %>%
+  arrange(indicator, location, origin_date, horizon)
+write_csv(fc, file.path(params$output_dir, "ensemble_forecasts.csv"))
+say(sprintf("wrote output/ensemble_forecasts.csv | %d rows | %d with a full 50%% interval",
+            nrow(fc), sum(!is.na(fc$q25) & !is.na(fc$q75))))
 
 OUT <- file.path(params$output_dir, "msp_weekly.csv")
 write_csv(msp, OUT)
